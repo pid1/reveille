@@ -114,7 +114,7 @@ def _render_nws_alerts(env: dict) -> str:
 
 
 def _render_nws_forecast(env: dict) -> str:
-    out = [_rule("NWS FORECAST (NEXT ~3 DAYS)")]
+    out = [_rule("NWS FORECAST")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
