@@ -92,14 +92,16 @@ def _render_summary(env: dict) -> str:
 
 
 def _render_nws_alerts(env: dict) -> str:
-    out = [_rule("NWS ALERTS")]
     if env["status"] != "ok":
-        out.append(_unavail_line(env))
-        return "\n".join(out)
+        return "\n".join([_rule("NWS ALERTS"), _unavail_line(env)])
     alerts = env["data"] or []
     if not alerts:
-        out.append("no active alerts.")
-        return "\n".join(out)
+        # hide the section entirely. no active alerts is a routine state;
+        # making the reader skim past 'no active alerts' every morning
+        # is noise. errors stay visible above; this only hides the
+        # ok-and-empty case.
+        return ""
+    out = [_rule("NWS ALERTS")]
     for i, a in enumerate(alerts):
         if i:
             out.append("")
@@ -141,13 +143,35 @@ def _render_nws_forecast(env: dict) -> str:
 
 
 def _render_ercot(env: dict) -> str:
-    out = [_rule("ERCOT")]
     if env["status"] != "ok":
-        out.append(_unavail_line(env))
-        return "\n".join(out)
+        return "\n".join([_rule("ERCOT"), _unavail_line(env)])
     d = env["data"] or {}
+
+    # decide whether to hide the section. there are two fetch paths:
+    #   - gridstatus.io: returns eea_level (INT 0-3) and condition_note.
+    #     a clean day is eea_level==0 with no condition note. hide it.
+    #   - ercot.com html scrape: gives raw frequency/load/capacity numbers
+    #     but no EEA signal at all. user said 'scrape and don't draw
+    #     conclusions', so the html-fallback path always shows the raw
+    #     numbers and lets the reader decide. detect this path via the
+    #     'gridstatus_error' field that ercot.fetch() sets when it falls
+    #     through, or by the 'source' field that records which path won.
+    source = d.get("source") or ""
+    on_html_fallback = source.startswith("ercot.com") or bool(d.get("gridstatus_error"))
+
+    if not on_html_fallback:
+        # gridstatus.io path. hide on normal days.
+        eea = d.get("eea_level")
+        cnote = (d.get("condition_note") or "").strip().lower()
+        cnote_trivial = cnote in {"", "normal"}
+        if (eea is None or eea == 0) and cnote_trivial:
+            return ""
+
+    out = [_rule("ERCOT")]
     if d.get("alert_level"):
         out.append(f"  alert level     {d['alert_level']}")
+    if d.get("condition_note"):
+        out.append(f"  condition       {d['condition_note']}")
     if d.get("frequency_hz") is not None:
         out.append(f"  frequency       {d['frequency_hz']} hz")
     if d.get("load_mw") is not None:
@@ -159,7 +183,9 @@ def _render_ercot(env: dict) -> str:
     if d.get("renewable_share_pct") is not None:
         out.append(f"  renewable share {d['renewable_share_pct']}%")
     if d.get("gridstatus_error"):
-        out.append(f"  note: gridstatus.io failed, fell back to ercot html")
+        # provenance note, not a conclusion. tells the reader the numbers
+        # came from the ercot.com scrape and no EEA signal is available.
+        out.append("  note: gridstatus.io failed, showing ercot.com scrape only")
         out.append(f"        ({d['gridstatus_error']})")
     return "\n".join(out)
 
@@ -173,39 +199,39 @@ def _render_ghostmaps(env: dict) -> str:
     the outer <pre>. so it's a sequence of (text, link, text, link, ...) lines
     each emitted as its own line outside <pre>.
     """
-    out = [_rule("GHOSTMAPS")]
     if env["status"] != "ok":
-        out.append(_unavail_line(env))
-        return "\n".join(out)
+        return "\n".join([_rule("GHOSTMAPS"), _unavail_line(env)])
     d = env["data"] or {}
     nearby = d.get("nearby") or []
     if not nearby:
-        out.append("no incidents within radius in the last 14 days.")
-    else:
-        for i, n in enumerate(nearby):
-            if i:
-                out.append("")
-            folder = f"  ({n['folder']})" if n.get("folder") else ""
-            out.append(f"{n['distance_mi']}mi {n['bearing']} -- {n['name']}{folder}")
-            for label, value in n.get("fields", []):
-                # fields are short; wrap if long
-                line = f"  {label:<12} {value}"
-                if len(line) > COL:
-                    line = f"  {label}:\n" + _wrap(value, indent="    ")
-                out.append(line)
-            cas = n.get("casualties") or {}
-            if cas:
-                parts = [f"{k} {v}" for k, v in cas.items()]
-                out.append(_wrap("casualties: " + ", ".join(parts)))
-            urls = n.get("research_urls") or []
-            if urls:
-                out.append("  research:")
-                for u in urls:
-                    # emit a real anchor; this requires the section to be
-                    # rendered outside <pre>. handled by the page assembler.
-                    out.append(f"    {u}")
-            elif not n.get("fields") and n.get("fallback_text"):
-                out.append(_wrap(n["fallback_text"]))
+        # hide the section entirely on a clean day. errors stay visible
+        # above; this only hides the ok-and-empty case.
+        return ""
+    out = [_rule("GHOSTMAPS")]
+    for i, n in enumerate(nearby):
+        if i:
+            out.append("")
+        folder = f"  ({n['folder']})" if n.get("folder") else ""
+        out.append(f"{n['distance_mi']}mi {n['bearing']} -- {n['name']}{folder}")
+        for label, value in n.get("fields", []):
+            # fields are short; wrap if long
+            line = f"  {label:<12} {value}"
+            if len(line) > COL:
+                line = f"  {label}:\n" + _wrap(value, indent="    ")
+            out.append(line)
+        cas = n.get("casualties") or {}
+        if cas:
+            parts = [f"{k} {v}" for k, v in cas.items()]
+            out.append(_wrap("casualties: " + ", ".join(parts)))
+        urls = n.get("research_urls") or []
+        if urls:
+            out.append("  research:")
+            for u in urls:
+                # emit a real anchor; this requires the section to be
+                # rendered outside <pre>. handled by the page assembler.
+                out.append(f"    {u}")
+        elif not n.get("fields") and n.get("fallback_text"):
+            out.append(_wrap(n["fallback_text"]))
     return "\n".join(out)
 
 
@@ -213,14 +239,15 @@ def _render_ghostmaps(env: dict) -> str:
 
 
 def _render_rss_section(title: str, env: dict, key: str) -> str:
-    out = [_rule(title)]
     if env["status"] != "ok":
-        out.append(_unavail_line(env))
-        return "\n".join(out)
+        return "\n".join([_rule(title), _unavail_line(env)])
     items = (env["data"] or {}).get(key) or []
     if not items:
-        out.append("no entries in last 14 days.")
-        return "\n".join(out)
+        # hide the section entirely. an empty 14-day feed is the routine
+        # case for hv police / fire and produces no actionable signal.
+        # errors stay visible above; this only hides ok-and-empty.
+        return ""
+    out = [_rule(title)]
     for i, e in enumerate(items):
         if i:
             out.append("")
@@ -310,19 +337,23 @@ def render_page(
     # http(s) urls into <a href> anchors. the entire body sits inside one
     # <pre> so the browser uses its default monospace font and the user
     # picks their own colors / size via their browser config.
-    text = "\n".join(
-        [
-            _header_block(now),
-            _render_summary(summary),
-            _render_nws_alerts(sections["nws_alerts"]),
-            _render_nws_forecast(sections["nws_forecast"]),
-            _render_ercot(sections["ercot"]),
-            _render_ghostmaps(sections["ghostmaps"]),
-            _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
-            _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
-            _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
-        ]
-    )
+    # each _render_* helper returns either a rendered section (starting with
+    # _rule()'s leading newline) or an empty string when the section is
+    # ok-and-empty and the policy is to hide it. errors always produce a
+    # rendered section so silent failures are not possible. filter empties
+    # before joining so we don't end up with double blank lines.
+    rendered = [
+        _header_block(now),
+        _render_summary(summary),
+        _render_nws_alerts(sections["nws_alerts"]),
+        _render_nws_forecast(sections["nws_forecast"]),
+        _render_ercot(sections["ercot"]),
+        _render_ghostmaps(sections["ghostmaps"]),
+        _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
+        _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
+        _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
+    ]
+    text = "\n".join(s for s in rendered if s)
 
     body = _linkify(text)
 
