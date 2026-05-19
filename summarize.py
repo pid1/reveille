@@ -128,7 +128,9 @@ def generate_summary(data_blob_text: str) -> str:
         ANTHROPIC_API,
         payload={
             "model": MODEL,
-            "max_tokens": 600,
+            # the prompt targets <=80 words (~120 tokens). 200 gives headroom
+            # for rare 2-paragraph days without permitting a wall of text.
+            "max_tokens": 200,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": data_blob_text}],
         },
