@@ -39,6 +39,8 @@ jobs:
           HV_GHOSTMAPS_RADIUS_MILES: ${{ secrets.HV_GHOSTMAPS_RADIUS_MILES }}
           GRIDSTATUS_API_KEY: ${{ secrets.GRIDSTATUS_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PUSHOVER_API_KEY: ${{ secrets.PUSHOVER_API_KEY }}
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_SHA: ${{ github.sha }}
         run: uv run python build.py

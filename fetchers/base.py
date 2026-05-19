@@ -119,6 +119,27 @@ def post_json(
     return json.loads(raw.decode("utf-8"))
 
 
+def post_form(
+    url: str,
+    payload: dict,
+    headers: dict | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Any:
+    """POST `payload` as application/x-www-form-urlencoded. parses the response
+    as json. used for apis like pushover that don't accept json bodies.
+    """
+    import urllib.parse
+    h = {"content-type": "application/x-www-form-urlencoded"}
+    if headers:
+        h.update(headers)
+    # urlencode keeps non-ascii utf-8 by encoding via quote_plus
+    body = urllib.parse.urlencode(
+        {k: v for k, v in payload.items() if v is not None}
+    ).encode("utf-8")
+    raw = _request("POST", url, headers=h, body=body, timeout=timeout)
+    return json.loads(raw.decode("utf-8"))
+
+
 # -- html stripping ---------------------------------------------------------
 
 

@@ -54,7 +54,15 @@ HV_COUNTY=...
 HV_TIMEZONE=...
 ANTHROPIC_API_KEY=...      # optional, for the ai summary
 GRIDSTATUS_API_KEY=...     # optional, for ercot data
+PUSHOVER_API_KEY=...       # optional, app token from pushover.net
+PUSHOVER_USER_KEY=...      # optional, user key from pushover.net dashboard
+REVEILLE_PAGE_URL=...      # optional, overrides the derived GH Pages URL
 ```
+
+if both pushover values are set, the build sends a push notification with
+the BLUF text to your devices after writing the page. the push is skipped
+on quiet days (when the BLUF is `NSTR.`) and any pushover failure is logged
+but does not affect the page build.
 
 ask the maintainer for the location values if you're working on a fork.
 
@@ -68,7 +76,7 @@ setup uses the [github cli](https://cli.github.com/) (`gh`). run from a clone of
 
 1. create the repo (if forking from scratch, `gh repo create pid1/reveille --public`)
 2. set all required `HV_*` secrets via `gh secret set` (location values are private -- get them from a trusted source)
-3. set api key secrets via `gh secret set ANTHROPIC_API_KEY` and `gh secret set GRIDSTATUS_API_KEY` (both prompt interactively without echoing)
+3. set api key secrets via `gh secret set ANTHROPIC_API_KEY`, `gh secret set GRIDSTATUS_API_KEY`, and (optional) `gh secret set PUSHOVER_API_KEY` + `gh secret set PUSHOVER_USER_KEY` (all prompt interactively without echoing)
 4. enable pages at `settings -> pages -> source -> "github actions"` (web ui only)
 5. push to main, or trigger manually via `gh workflow run "build dashboard"` or the actions tab in the ui
 6. page lives at `pid1.github.io/reveille/`

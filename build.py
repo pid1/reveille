@@ -85,6 +85,17 @@ def main() -> int:
     print(f"[build] wrote {out_path} ({size} bytes)", flush=True)
     if size > 50_000:
         print(f"[build] WARN: page is {size} bytes, above the 20KB target", flush=True)
+
+    # opportunistic pushover notification. runs after the page is written
+    # so any pushover failure cannot affect publishing. the notifier itself
+    # never raises -- it logs and returns. only fires when the BLUF is
+    # present and not the NSTR sentinel.
+    try:
+        from notifier import send_pushover  # local import; module is optional
+        send_pushover(summary, now)
+    except Exception as e:
+        print(f"[build] pushover step crashed unexpectedly: {type(e).__name__}: {e}", flush=True)
+
     return 0
 
 
