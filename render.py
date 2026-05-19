@@ -21,18 +21,34 @@ from typing import Any
 from config import CITY, STATE
 
 
-COL = 78  # rough target line width for plaintext sections
+COL = 48  # target line width for plaintext wrap. tuned so output of _wrap()
+# fits a typical mobile viewport (~360-430px) at the browser-default
+# monospace size WITHOUT requiring the browser to soft-wrap. that matters
+# because soft-wrapped continuation lines lose their indent (they reset to
+# column 0), so a 'hanging indent' has to be baked in by _wrap() itself.
+# desktop viewports just see slightly narrower text, which matches the
+# rest of the design.
 
 
 # -- helpers ----------------------------------------------------------------
 
 
+# sentinel pair for bolding section headers. _rule() emits these around the
+# title text; _linkify()'s post-pass rewrites them to <b>...</b> after html
+# escaping has run. printable markers (vs control chars) make the rendered
+# html easier to read in 'view source' while still being implausible enough
+# to never appear in legitimate fetched content.
+_B_OPEN = "[[B]]"
+_B_CLOSE = "[[/B]]"
+
+
 def _rule(title: str) -> str:
-    bar = "=" * max(len(title), 12)
-    # leading blank line separates from the previous section; trailing blank
-    # line separates the underline from the section's content. every caller
-    # therefore gets a uniform "section header sits in its own paragraph".
-    return f"\n{title}\n{bar}\n"
+    # title is emitted verbatim, wrapped in bold sentinels (rewritten to
+    # <b>...</b> by _linkify) and surrounded by a leading + trailing blank
+    # line so the header sits in its own visual paragraph. callers pass
+    # the exact text they want displayed -- typically short uppercase
+    # labels like 'NWS ALERTS', 'ERCOT', 'GHOSTMAPS'.
+    return f"\n{_B_OPEN}{title}{_B_CLOSE}\n"
 
 
 def _unavail_line(env: dict) -> str:
@@ -62,7 +78,7 @@ def _wrap(text: str, indent: str = "  ", width: int = COL) -> str:
 
 
 def _render_summary(env: dict) -> str:
-    parts = [_rule("ai summary")]
+    parts = [_rule("BLUF")]
     if env.get("status") == "ok" and env.get("data"):
         parts.append(env["data"])
     else:
@@ -76,7 +92,7 @@ def _render_summary(env: dict) -> str:
 
 
 def _render_nws_alerts(env: dict) -> str:
-    out = [_rule("nws active alerts")]
+    out = [_rule("NWS ALERTS")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -98,7 +114,7 @@ def _render_nws_alerts(env: dict) -> str:
 
 
 def _render_nws_forecast(env: dict) -> str:
-    out = [_rule("nws forecast (next ~3 days)")]
+    out = [_rule("NWS FORECAST (NEXT ~3 DAYS)")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -125,7 +141,7 @@ def _render_nws_forecast(env: dict) -> str:
 
 
 def _render_ercot(env: dict) -> str:
-    out = [_rule("ercot grid status")]
+    out = [_rule("ERCOT")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -157,7 +173,7 @@ def _render_ghostmaps(env: dict) -> str:
     the outer <pre>. so it's a sequence of (text, link, text, link, ...) lines
     each emitted as its own line outside <pre>.
     """
-    out = [_rule("ghostmaps incidents within radius")]
+    out = [_rule("GHOSTMAPS")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -265,15 +281,23 @@ def _linkify(text: str) -> str:
         # already-escaped url is fine because & < > stay encoded.
         return f'<a href="{url}">{label}</a>{trailing}'
 
-    return pat.sub(repl, escaped)
+    linked = pat.sub(repl, escaped)
+    # finally, rewrite the section-header bold sentinels emitted by _rule()
+    # into real <b>...</b> tags. has to happen after html escaping so the
+    # tags survive into the output.
+    return linked.replace(_B_OPEN, "<b>").replace(_B_CLOSE, "</b>")
 
 
 # -- top-level --------------------------------------------------------------
 
 
 def _header_block(now: datetime) -> str:
-    generated = now.strftime("%Y-%m-%d %H:%M %Z")
-    return f"reveille\nGenerated at {generated}"
+    # the only thing the page-top still needs is the freshness indicator.
+    # the 'reveille' brand line and 'generated' prefix are both redundant
+    # given the page url, the page title, and the timestamp's position at
+    # the top of the page. the bare timestamp earns its keep because the
+    # page is a morning briefing; how stale the data is matters.
+    return now.strftime("%Y-%m-%d %H:%M %Z")
 
 
 def render_page(
@@ -294,9 +318,9 @@ def render_page(
             _render_nws_forecast(sections["nws_forecast"]),
             _render_ercot(sections["ercot"]),
             _render_ghostmaps(sections["ghostmaps"]),
-            _render_rss_section("hv emergency alerts (last 14d)", sections["hv_rss"], "emergency"),
-            _render_rss_section("hv police news (last 14d)", sections["hv_rss"], "police"),
-            _render_rss_section("hv fire news (last 14d)", sections["hv_rss"], "fire"),
+            _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
+            _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
+            _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
         ]
     )
 
