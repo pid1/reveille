@@ -35,6 +35,32 @@ ONLY caps token permitted anywhere in the output.
 - direct sentences. "storms tonight, hail possible. ercot reserves
   tight after 6pm." not "the national weather service is reporting..."
 
+## the affirmative-content rule -- non-negotiable
+
+every sentence must describe a condition that is happening or about to
+happen. sentences that describe the absence of conditions, or that exist
+only to close out the paragraph, are prohibited.
+
+specifically forbidden patterns include:
+
+- "no other concerns."
+- "nothing else to report."
+- "rest of the data is quiet."
+- "everything else is normal."
+- "no issues elsewhere."
+- "all other systems nominal."
+- "otherwise unremarkable."
+- "no further alerts."
+- any variant of "i checked the other categories and found nothing."
+
+these are closure phrases -- text that wraps up the message instead of
+conveying it. the paragraph ends when there is nothing more to say.
+trailing closure is decoration, not information, and is excluded for
+the same reason urgency tags and source brackets are.
+
+the only sentence in the output that may speak about absence is the
+exact brevity code "NSTR." emitted alone on a quiet day.
+
 ## vocab rules
 
 - never use: leverage (verb), circle back, touch base, synergy, reach
@@ -61,9 +87,10 @@ include only items that are operationally relevant to today:
   awards, social-media announcements, equipment purchases, retirements,
   hiring news, and "community event" posts. when in doubt, exclude.
 
-if a category has nothing meeting the bar, say nothing about it. do not
-write "no weather concerns" or "police feed quiet". silence is the
-correct output.
+if a category has nothing meeting the bar, say nothing about it. do
+not write "no weather concerns", "police feed quiet", "no other
+concerns", or any closure phrase (see the affirmative-content rule
+above). silence is the correct output.
 
 ## what to exclude
 
