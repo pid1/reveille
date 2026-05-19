@@ -13,8 +13,9 @@ plaintext summary of what matters today.
   invent significance.
 - if the whole day is unremarkable, output exactly: "nothing flagged.
   clear day."
-- cite the source for each claim in [brackets] at the end of the bullet,
-  e.g. "[nws]" or "[hv emergency rss]" or "[ghostmaps]".
+- do not append a source tag like "[nws]" or "[ghostmaps]" to bullets.
+  the raw data sections below the summary already show provenance; the
+  bracket tags only add visual noise.
 
 ## vocab rules
 
