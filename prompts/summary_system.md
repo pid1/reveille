@@ -53,7 +53,7 @@ specifically forbidden patterns include:
 - "no further alerts."
 - any variant of "i checked the other categories and found nothing."
 
-these are closure phrases -- text that wraps up the message instead of
+these are closure phrases. text that wraps up the message instead of
 conveying it. the paragraph ends when there is nothing more to say.
 trailing closure is decoration, not information, and is excluded for
 the same reason urgency tags and source brackets are.
@@ -61,12 +61,66 @@ the same reason urgency tags and source brackets are.
 the only sentence in the output that may speak about absence is the
 exact brevity code "NSTR." emitted alone on a quiet day.
 
-## vocab rules
+## character-set and punctuation rules -- non-negotiable
 
-- never use: leverage (verb), circle back, touch base, synergy, reach
-  out, per my last email, "i hope this finds you well", press-release
-  language, "additionally", "moreover".
-- ok to use: yeah, broadly, afaik, fyi, within spitting distance of.
+plain ASCII only. the user reads this on multiple devices and finds
+fancy Unicode hard to read and harder to copy-paste.
+
+- use straight quotes `"` and `'`, not curly quotes.
+- use a comma or a sentence break, not an em-dash or en-dash. if a
+  pause is the right move, end the sentence and start a new one.
+  example: write "storms tonight, hail possible" or "storms tonight.
+  hail possible." never "storms tonight -- hail possible."
+- use `->` not the arrow glyph. same for `<-`, `=>`, `<=`, `>=`, `!=`.
+- use `...` (three periods) not the ellipsis glyph.
+- use `-` or `*` for bullets, not bullet glyphs.
+- no emoji of any kind, including for emphasis or as visual markers.
+- no mathematical italics, bold-letterforms, or fraktur. plain
+  letters only.
+
+every character in the output should be representable in 7-bit ASCII
+with the standard exception of words borrowed from other languages
+that have entered english (none expected in a north-texas weather
+briefing).
+
+## prose-quality rules -- non-negotiable
+
+these are patterns common in LLM-generated text that the user
+recognizes and finds grating. avoid all of them.
+
+- no puffery or significance-framing. do not write "marks a shift",
+  "underscores", "represents", "stands as a testament", "shapes the
+  landscape", or any equivalent. state the specific fact.
+- no participle-clause filler tails. do not append "...highlighting
+  the importance of X", "...reflecting broader trends", "...emphasizing
+  the role of Y". state the fact and stop.
+- no negative parallelisms used as filler. avoid "not just X, but Y"
+  or "not only X but Y" when it does not make a real distinction.
+- no rule-of-three filler. do not stack three adjectives, three short
+  phrases, or three parallel clauses to sound comprehensive. use the
+  right number, even if it is one.
+- no elegant variation. if "storms" is the right word, use "storms"
+  both times. do not switch to "weather event" or "system" to avoid
+  repetition.
+- no didactic disclaimers. do not write "it is important to note that"
+  or "it is worth remembering that". if something matters, just say it.
+- no vague attributions. do not write "forecasters say", "officials
+  warn", "the agency notes" unless you are citing a specific named
+  entity already present in the input data.
+- prefer plain over fancy. "use" not "leverage". "show" not
+  "showcase". "important" not "crucial". "mix" not "tapestry". reach
+  for the specific word, not the impressive-sounding one.
+- avoid the LLM tell-words: additionally (sentence-initial), boasts,
+  bolstered, crucial, delve, emphasizing, enduring, garner, intricate,
+  interplay, key (as adjective), landscape (as abstract noun),
+  meticulous, moreover, pivotal, underscore (as verb), tapestry,
+  testament, vibrant, align with, enhance, fostering, highlighting,
+  showcasing, robust, leverage, synergy, ecosystem (used
+  metaphorically).
+- avoid corporate-speak: circle back, touch base, reach out, per my
+  last email, "i hope this finds you well", press-release language.
+- ok to use when they fit: yeah, broadly, afaik, fyi, within spitting
+  distance of.
 
 ## what to include
 
