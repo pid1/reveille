@@ -222,12 +222,21 @@ def _render_rss_section(title: str, env: dict, key: str) -> str:
 
 
 def _linkify(text: str) -> str:
-    """html-escape `text`, then turn any bare http(s) urls into <a href> anchors.
+    """html-escape `text`, then turn any bare http(s) urls into <a href> anchors
+    whose visible text is just the hostname.
+
+    rationale: full urls on a narrow mobile viewport wrap awkwardly because they
+    contain no break points until pre-wrap+overflow-wrap forces character-level
+    breaks. displaying just the hostname (with any leading 'www.' stripped)
+    keeps the anchor short enough to never need wrapping while still telling
+    the reader where the link goes; the href stays exact, so the destination
+    is unchanged.
 
     operates on the already-escaped text so the surrounding content is safe.
     only matches whitespace-terminated http/https urls.
     """
     import re
+    from urllib.parse import urlsplit
     # quote=False: inside <pre> text we only need to escape & < >, not ' or ".
     # this keeps Austin Metcalf's as a literal apostrophe in view-source.
     escaped = h(text, quote=False)
@@ -242,7 +251,19 @@ def _linkify(text: str) -> str:
         while url and url[-1] in ".,);]":
             trailing = url[-1] + trailing
             url = url[:-1]
-        return f'<a href="{url}">{url}</a>{trailing}'
+        # derive a short display label from the hostname. fall back to the
+        # full url if urlsplit can't parse one out (shouldn't happen for a
+        # well-formed match, but defensive).
+        try:
+            host = (urlsplit(url).hostname or "").lower()
+        except ValueError:
+            host = ""
+        if host.startswith("www."):
+            host = host[4:]
+        label = host or url
+        # the href value still needs the same escape pass; h() over the
+        # already-escaped url is fine because & < > stay encoded.
+        return f'<a href="{url}">{label}</a>{trailing}'
 
     return pat.sub(repl, escaped)
 
