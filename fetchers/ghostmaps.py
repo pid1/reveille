@@ -21,7 +21,7 @@ from datetime import datetime
 from math import asin, atan2, cos, degrees, radians, sin, sqrt
 
 from config import GHOSTMAPS_RADIUS_MILES, LAT, LON
-from fetchers.base import get_bytes, get_json, strip_html, truncate
+from fetchers.base import extract_hrefs, get_bytes, get_json, strip_html, truncate
 
 REPO = "s2underground/GhostMaps"
 DIR_PATH = "ArcGIS Data for ATAK (KMZs)/Common Intelligence Picture/Master Database"
@@ -220,6 +220,130 @@ def _enclosing_folder(pm: ET.Element, root: ET.Element) -> str:
     return ""
 
 
+# GhostMaps placemark <description> bodies are little HTML documents
+# containing one or more <table>s of <td>key</td><td>value</td> rows.
+# we extract those pairs verbatim, drop null / category-header noise, and
+# pull research urls out of the <a href> tags separately so the renderer
+# can present them as real links.
+_TD_PAIR_RE = re.compile(
+    r"<td[^>]*>(?P<k>.*?)</td>\s*<td[^>]*>(?P<v>.*?)</td>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+_NULL_TOKENS = {"", "<null>", "null", "&lt;null&gt;", "n/a", "na", "-"}
+
+# only surface fields we care about, in this display order. anything not
+# in this list is dropped from the rendered output (still available in
+# extra dict if we want it later).
+_DISPLAY_FIELDS: list[tuple[str, str]] = [
+    # (canonical_key, label)
+    ("AttackType", "type"),
+    ("CrimeType", "type"),
+    ("InstallationType", "type"),
+    ("Date", "date"),
+    ("OperationalStatus", "status"),
+    ("Affiliation", "affiliation"),
+    ("AttackMotive", "motive"),
+    ("Notes", "notes"),
+    ("Description", "description"),
+    ("FullStreetAddress", "address"),
+    ("GeolocationNotes", "geo notes"),
+    ("TribeClanGroup", "group"),
+    ("Installation Name", "installation"),
+    ("ReportCredit", "report credit"),
+]
+
+_CASUALTY_FIELDS = [
+    "Enemy Killed", "Enemy Wounded",
+    "Friendly Killed", "Friendly Wounded",
+    "Civilian Killed", "Civilian Wounded",
+    "Neutral Killed", "Neutral Wounded",
+    "Unknown Killed", "Unknown Wounded",
+]
+
+
+def _norm_key(raw: str) -> str:
+    """strip tags / whitespace / the colspan-merged SHAPE artifact."""
+    txt = strip_html(raw or "")
+    # the category-header cells look like 'Arson\n\n...SHAPE' due to a
+    # colspan layout quirk; throw those away
+    if "SHAPE" in txt and len(txt) > 6:
+        return ""
+    return txt.strip()
+
+
+def _norm_value(raw: str) -> str:
+    txt = strip_html(raw or "").strip()
+    if txt.lower() in _NULL_TOKENS:
+        return ""
+    return txt
+
+
+def _parse_description(desc_html: str) -> tuple[dict[str, str], list[str], dict[str, str]]:
+    """parse a placemark description html.
+
+    returns (fields, research_urls, casualties) where:
+      fields:       canonical_key -> cleaned value (only display fields)
+      research_urls: deduplicated list of http(s) urls from any "Research*" row
+      casualties:   subset of casualty-count fields with nonzero values
+    """
+    if not desc_html:
+        return {}, [], {}
+
+    fields: dict[str, str] = {}
+    research_urls: list[str] = []
+    casualties: dict[str, str] = {}
+    seen_research: set[str] = set()
+
+    for m in _TD_PAIR_RE.finditer(desc_html):
+        k = _norm_key(m.group("k"))
+        if not k:
+            continue
+        v_raw = m.group("v") or ""
+
+        # research fields: harvest urls (links), discard the visible text
+        if k.lower().replace(" ", "").startswith("research"):
+            for u in extract_hrefs(v_raw):
+                if u not in seen_research:
+                    seen_research.add(u)
+                    research_urls.append(u)
+            continue
+
+        v = _norm_value(v_raw)
+        if not v:
+            continue
+
+        if k in _CASUALTY_FIELDS:
+            # only surface nonzero casualty rows
+            if v not in {"0", "0.0"}:
+                casualties[k.lower()] = v
+            continue
+
+        # only keep the first hit per canonical key (some files repeat)
+        if k not in fields:
+            fields[k] = v
+
+    return fields, research_urls, casualties
+
+
+def _display_fields(fields: dict[str, str]) -> list[tuple[str, str]]:
+    """return [(label, value)] in the order defined by _DISPLAY_FIELDS,
+    only including fields actually present and non-empty.
+    """
+    out: list[tuple[str, str]] = []
+    used_labels: set[str] = set()
+    for canonical, label in _DISPLAY_FIELDS:
+        v = fields.get(canonical)
+        if not v:
+            continue
+        # avoid two different canonicals both rendering as 'type'
+        if label in used_labels:
+            continue
+        used_labels.add(label)
+        out.append((label, v))
+    return out
+
+
 def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 3958.7613
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
@@ -299,13 +423,19 @@ def fetch() -> dict:
             desc_el = _direct_child(pm, "description")
             desc_text = desc_el.text if desc_el is not None else ""
             folder = _enclosing_folder(pm, root)
+            parsed_fields, research_urls, casualties = _parse_description(desc_text or "")
             nearby.append(
                 {
                     "name": name,
                     "distance_mi": round(dist, 1),
                     "bearing": _bearing(LAT, LON, lat, lon),
                     "folder": folder,
-                    "description": truncate(strip_html(desc_text or ""), 200),
+                    "fields": _display_fields(parsed_fields),
+                    "casualties": casualties,
+                    "research_urls": research_urls,
+                    # keep a stripped fallback summary in case nothing parsed;
+                    # truncated, used only when fields/research are both empty
+                    "fallback_text": truncate(strip_html(desc_text or ""), 200),
                 }
             )
         except Exception:

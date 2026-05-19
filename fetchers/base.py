@@ -146,6 +146,32 @@ def strip_html(s: str) -> str:
     return " ".join(html_module.unescape(p.get_text()).split())
 
 
+_HREF_RE = None  # lazy compile
+
+
+def extract_hrefs(s: str) -> list[str]:
+    """pull all href values out of any <a> tags in s, in order, deduplicated.
+
+    accepts single or double quotes, decodes html entities in the url.
+    """
+    import re
+    global _HREF_RE
+    if _HREF_RE is None:
+        _HREF_RE = re.compile(r"""<a\b[^>]*?\bhref\s*=\s*(['"])(.*?)\1""", re.IGNORECASE | re.DOTALL)
+    if not s:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in _HREF_RE.finditer(s):
+        url = html_module.unescape(m.group(2)).strip()
+        if not url or url in seen:
+            continue
+        if url.startswith(("http://", "https://")):
+            seen.add(url)
+            out.append(url)
+    return out
+
+
 def truncate(s: str, limit: int) -> str:
     """truncate to `limit` chars on a word boundary if possible, append ellipsis."""
     if not s or len(s) <= limit:
