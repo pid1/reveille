@@ -148,10 +148,16 @@ def _render_ercot(env: dict) -> str:
     d = env["data"] or {}
 
     # decide whether to hide the section. there are two fetch paths:
-    #   - gridstatus.io: returns eea_level (INT 0-3) and condition_note.
-    #     a clean day is eea_level==0 with no condition note. hide it.
-    #   - ercot.com html scrape: gives raw frequency/load/capacity numbers
-    #     but no EEA signal at all. user said 'scrape and don't draw
+    #   - gridstatus.io: 'alert_level' carries the human-readable 'title'
+    #     column verbatim. on calm days every row has title='Normal
+    #     Conditions' -- verified against ~30 days of dataset preview;
+    #     no other title value observed in that window. hide on that
+    #     exact string and only that. anything else (EEA levels,
+    #     weather advisories, anything we haven't catalogued yet) falls
+    #     through and renders. if new normal-day titles surface in
+    #     the wild, extend this set.
+    #   - ercot.com html scrape: gives raw frequency/load/capacity but
+    #     no EEA signal at all. user said 'scrape and don't draw
     #     conclusions', so the html-fallback path always shows the raw
     #     numbers and lets the reader decide. detect this path via the
     #     'gridstatus_error' field that ercot.fetch() sets when it falls
@@ -159,12 +165,10 @@ def _render_ercot(env: dict) -> str:
     source = d.get("source") or ""
     on_html_fallback = source.startswith("ercot.com") or bool(d.get("gridstatus_error"))
 
+    _NORMAL_TITLES = {"normal conditions"}
     if not on_html_fallback:
-        # gridstatus.io path. hide on normal days.
-        eea = d.get("eea_level")
-        cnote = (d.get("condition_note") or "").strip().lower()
-        cnote_trivial = cnote in {"", "normal"}
-        if (eea is None or eea == 0) and cnote_trivial:
+        title = (d.get("alert_level") or "").strip().lower()
+        if title in _NORMAL_TITLES:
             return ""
 
     out = [_rule("ERCOT")]
