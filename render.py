@@ -166,7 +166,7 @@ def _render_ghostmaps(env: dict) -> str:
     d = env["data"] or {}
     nearby = d.get("nearby") or []
     if not nearby:
-        out.append("no incidents within configured radius.")
+        out.append("no incidents within radius in the last 14 days.")
     else:
         for n in nearby:
             out.append("")
@@ -250,35 +250,17 @@ def _linkify(text: str) -> str:
 # -- top-level --------------------------------------------------------------
 
 
-def _freshness(sections: dict) -> str:
-    total = len(sections)
-    ok_count = sum(1 for v in sections.values() if v.get("status") == "ok")
-    return f"sections ok {ok_count}/{total}"
-
-
-def _header_block(now: datetime, freshness: str) -> str:
+def _header_block(now: datetime) -> str:
     date_str = now.strftime("%a %b %d, %Y")
-    time_str = now.strftime("%H:%M %Z")
-    title = f"reveille -- {CITY}, {STATE} daily -- {date_str}"
-    bar = "=" * len(title)
-    return f"{bar}\n{title}\n{bar}\nbuilt: {time_str} | {freshness}"
-
-
-def _footer_block(commit_sha: str | None) -> str:
-    sha = commit_sha or "local"
-    return (
-        "\n--\n"
-        "sources: nws.weather.gov | ercot.com / gridstatus.io | "
-        "highlandvillage.org | github.com/s2underground/GhostMaps\n"
-        f"build: {sha}\n"
-    )
+    generated = now.strftime("%Y-%m-%d %H:%M %Z")
+    return f"reveille\n{date_str}\nGenerated at {generated}"
 
 
 def render_page(
     sections: dict[str, Any],
     summary: dict,
     now: datetime,
-    commit_sha: str | None = None,
+    commit_sha: str | None = None,  # kept for build.py compatibility; unused
 ) -> str:
     # assemble all sections as plaintext, then linkify -- turn any bare
     # http(s) urls into <a href> anchors. the entire body sits inside one
@@ -286,7 +268,7 @@ def render_page(
     # picks their own colors / size via their browser config.
     text = "\n".join(
         [
-            _header_block(now, _freshness(sections)),
+            _header_block(now),
             _render_summary(summary),
             _render_nws_alerts(sections["nws_alerts"]),
             _render_nws_forecast(sections["nws_forecast"]),
@@ -295,7 +277,6 @@ def render_page(
             _render_rss_section("hv emergency alerts (last 14d)", sections["hv_rss"], "emergency"),
             _render_rss_section("hv police news (last 14d)", sections["hv_rss"], "police"),
             _render_rss_section("hv fire news (last 14d)", sections["hv_rss"], "fire"),
-            _footer_block(commit_sha),
         ]
     )
 

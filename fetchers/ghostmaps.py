@@ -17,11 +17,13 @@ import os
 import re
 import xml.etree.ElementTree as ET
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import asin, atan2, cos, degrees, radians, sin, sqrt
 
-from config import GHOSTMAPS_RADIUS_MILES, LAT, LON
+from config import GHOSTMAPS_RADIUS_MILES, LAT, LON, TIMEZONE
 from fetchers.base import extract_hrefs, get_bytes, get_json, strip_html, truncate
+
+MAX_AGE_DAYS = 14
 
 REPO = "s2underground/GhostMaps"
 DIR_PATH = "ArcGIS Data for ATAK (KMZs)/Common Intelligence Picture/Master Database"
@@ -326,6 +328,29 @@ def _parse_description(desc_html: str) -> tuple[dict[str, str], list[str], dict[
     return fields, research_urls, casualties
 
 
+_DATE_RE = re.compile(r"^\s*(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{2,4})\s*$")
+
+
+def _parse_incident_date(s: str) -> datetime | None:
+    """parse a ghostmaps placemark Date field. accepts m/d/yyyy and m-d-yyyy.
+
+    2-digit years are rejected (ambiguous). returns a tz-aware datetime
+    at midnight in the configured timezone, or None if unparseable.
+    """
+    if not s:
+        return None
+    m = _DATE_RE.match(s)
+    if not m:
+        return None
+    mo, da, yr = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if yr < 100:
+        return None
+    try:
+        return datetime(yr, mo, da, tzinfo=TIMEZONE)
+    except ValueError:
+        return None
+
+
 def _display_fields(fields: dict[str, str]) -> list[tuple[str, str]]:
     """return [(label, value)] in the order defined by _DISPLAY_FIELDS,
     only including fields actually present and non-empty.
@@ -399,6 +424,10 @@ def fetch() -> dict:
     skipped = 0
     nearby: list[dict] = []
     seen: set[tuple[str, float, float]] = set()
+    # cutoff at midnight `MAX_AGE_DAYS` ago, so "last 14 days" includes all of
+    # day -14 rather than half-clipping by current-time-of-day
+    today_midnight = datetime.now(TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff = today_midnight - timedelta(days=MAX_AGE_DAYS)
 
     for pm in _iter_placemarks(root):
         total += 1
@@ -424,6 +453,15 @@ def fetch() -> dict:
             desc_text = desc_el.text if desc_el is not None else ""
             folder = _enclosing_folder(pm, root)
             parsed_fields, research_urls, casualties = _parse_description(desc_text or "")
+
+            # 14-day filter: drop anything older than the cutoff, or anything
+            # without a parseable Date field. installations (safehouses, etc.)
+            # have no Date and are excluded by design -- this section is for
+            # recent incidents only.
+            incident_dt = _parse_incident_date(parsed_fields.get("Date", ""))
+            if incident_dt is None or incident_dt < cutoff:
+                continue
+
             nearby.append(
                 {
                     "name": name,

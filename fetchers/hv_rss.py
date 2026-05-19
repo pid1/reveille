@@ -35,7 +35,10 @@ def _to_central(parsed: struct_time | None) -> datetime | None:
 
 def _entries_from(url: str) -> list[dict]:
     fp = feedparser.parse(url)
-    cutoff = datetime.now(TIMEZONE) - timedelta(days=MAX_AGE_DAYS)
+    # cutoff at midnight `MAX_AGE_DAYS` ago, not now - 14d (which half-clips
+    # by current-time-of-day)
+    today_midnight = datetime.now(TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff = today_midnight - timedelta(days=MAX_AGE_DAYS)
     out: list[dict] = []
     for e in fp.entries or []:
         published = _to_central(getattr(e, "published_parsed", None)) or _to_central(
