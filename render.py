@@ -29,7 +29,10 @@ COL = 78  # rough target line width for plaintext sections
 
 def _rule(title: str) -> str:
     bar = "=" * max(len(title), 12)
-    return f"\n{title}\n{bar}"
+    # leading blank line separates from the previous section; trailing blank
+    # line separates the underline from the section's content. every caller
+    # therefore gets a uniform "section header sits in its own paragraph".
+    return f"\n{title}\n{bar}\n"
 
 
 def _section_head(title: str, env: dict | None) -> str:
@@ -88,8 +91,9 @@ def _render_nws_alerts(env: dict) -> str:
     if not alerts:
         out.append("no active alerts.")
         return "\n".join(out)
-    for a in alerts:
-        out.append("")
+    for i, a in enumerate(alerts):
+        if i:
+            out.append("")
         out.append(f"{a['event']} ({a['severity']} / {a['urgency']})")
         if a.get("headline"):
             out.append(_wrap(a["headline"]))
@@ -109,8 +113,9 @@ def _render_nws_forecast(env: dict) -> str:
     if not periods:
         out.append("no forecast periods returned.")
         return "\n".join(out)
-    for p in periods:
-        out.append("")
+    for i, p in enumerate(periods):
+        if i:
+            out.append("")
         out.append(f"{p['name']}")
         temp = f"{p['temperature']} {p['temperatureUnit']}"
         wind = f"wind {p['windSpeed']} {p['windDirection']}".rstrip()
@@ -168,8 +173,9 @@ def _render_ghostmaps(env: dict) -> str:
     if not nearby:
         out.append("no incidents within radius in the last 14 days.")
     else:
-        for n in nearby:
-            out.append("")
+        for i, n in enumerate(nearby):
+            if i:
+                out.append("")
             folder = f"  ({n['folder']})" if n.get("folder") else ""
             out.append(f"{n['distance_mi']}mi {n['bearing']} -- {n['name']}{folder}")
             for label, value in n.get("fields", []):
@@ -206,8 +212,9 @@ def _render_rss_section(title: str, env: dict, key: str) -> str:
     if not items:
         out.append("no entries in last 14 days.")
         return "\n".join(out)
-    for e in items:
-        out.append("")
+    for i, e in enumerate(items):
+        if i:
+            out.append("")
         pub = e.get("published") or ""
         title_s = e.get("title") or ""
         out.append(f"{pub}  {title_s}")
@@ -251,9 +258,8 @@ def _linkify(text: str) -> str:
 
 
 def _header_block(now: datetime) -> str:
-    date_str = now.strftime("%a %b %d, %Y")
     generated = now.strftime("%Y-%m-%d %H:%M %Z")
-    return f"reveille\n{date_str}\nGenerated at {generated}"
+    return f"reveille\nGenerated at {generated}"
 
 
 def render_page(
