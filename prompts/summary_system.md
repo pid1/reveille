@@ -53,7 +53,8 @@ include only items that are operationally relevant to today:
 - ghostmaps incidents within 10 miles, always. 10-25 miles only if the
   incident type suggests ongoing public-safety risk (active shooter,
   large-scale violence, hazmat). routine traffic accidents at 15 miles
-  do not get mentioned.
+  do not get mentioned. note that this section is now scoped to the
+  last 24 hours, so everything you see here is by definition recent.
 - hv emergency rss entries from the last 48 hours.
 - hv police or fire rss only if the entry describes an active incident
   or a hazard the reader needs to know about today. exclude fundraisers,

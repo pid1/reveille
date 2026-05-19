@@ -23,7 +23,14 @@ from math import asin, atan2, cos, degrees, radians, sin, sqrt
 from config import GHOSTMAPS_RADIUS_MILES, LAT, LON, TIMEZONE
 from fetchers.base import extract_hrefs, get_bytes, get_json, strip_html, truncate
 
-MAX_AGE_DAYS = 14
+# show only incidents dated today or yesterday. ghostmaps Date fields are
+# day-granular (m/d/yyyy, no time-of-day component), so the cutoff sits at
+# 'midnight today minus N days'. setting N=1 yields a window that covers
+# today + yesterday's incidents, which is the closest the data granularity
+# allows to 'past 24 hours'. anything older is excluded -- the user has
+# already seen it on previous mornings' briefings and is unlikely to act
+# on it today.
+MAX_AGE_DAYS = 1
 
 REPO = "s2underground/GhostMaps"
 DIR_PATH = "ArcGIS Data for ATAK (KMZs)/Common Intelligence Picture/Master Database"
@@ -424,8 +431,8 @@ def fetch() -> dict:
     skipped = 0
     nearby: list[dict] = []
     seen: set[tuple[str, float, float]] = set()
-    # cutoff at midnight `MAX_AGE_DAYS` ago, so "last 14 days" includes all of
-    # day -14 rather than half-clipping by current-time-of-day
+    # cutoff at midnight `MAX_AGE_DAYS` ago, so the window includes all of
+    # the boundary day rather than half-clipping by current-time-of-day
     today_midnight = datetime.now(TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff = today_midnight - timedelta(days=MAX_AGE_DAYS)
 
@@ -454,7 +461,7 @@ def fetch() -> dict:
             folder = _enclosing_folder(pm, root)
             parsed_fields, research_urls, casualties = _parse_description(desc_text or "")
 
-            # 14-day filter: drop anything older than the cutoff, or anything
+            # recency filter: drop anything older than the cutoff, or anything
             # without a parseable Date field. installations (safehouses, etc.)
             # have no Date and are excluded by design -- this section is for
             # recent incidents only.
