@@ -35,13 +35,6 @@ def _rule(title: str) -> str:
     return f"\n{title}\n{bar}\n"
 
 
-def _section_head(title: str, env: dict | None) -> str:
-    if env is None:
-        return _rule(title)
-    ts = env.get("fetched_at") or ""
-    return _rule(f"{title}  [fetched {ts}]")
-
-
 def _unavail_line(env: dict) -> str:
     return f"[unavailable: {env.get('error') or 'unknown'}]"
 
@@ -83,7 +76,7 @@ def _render_summary(env: dict) -> str:
 
 
 def _render_nws_alerts(env: dict) -> str:
-    out = [_section_head("nws active alerts", env)]
+    out = [_rule("nws active alerts")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -105,7 +98,7 @@ def _render_nws_alerts(env: dict) -> str:
 
 
 def _render_nws_forecast(env: dict) -> str:
-    out = [_section_head("nws forecast (next ~3 days)", env)]
+    out = [_rule("nws forecast (next ~3 days)")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -132,7 +125,7 @@ def _render_nws_forecast(env: dict) -> str:
 
 
 def _render_ercot(env: dict) -> str:
-    out = [_section_head("ercot grid status", env)]
+    out = [_rule("ercot grid status")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -164,7 +157,7 @@ def _render_ghostmaps(env: dict) -> str:
     the outer <pre>. so it's a sequence of (text, link, text, link, ...) lines
     each emitted as its own line outside <pre>.
     """
-    out = [_section_head("ghostmaps incidents within radius", env)]
+    out = [_rule("ghostmaps incidents within radius")]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -204,7 +197,7 @@ def _render_ghostmaps(env: dict) -> str:
 
 
 def _render_rss_section(title: str, env: dict, key: str) -> str:
-    out = [_section_head(title, env)]
+    out = [_rule(title)]
     if env["status"] != "ok":
         out.append(_unavail_line(env))
         return "\n".join(out)
@@ -288,6 +281,11 @@ def render_page(
 
     body = _linkify(text)
 
+    # the only css on the page: make the <pre> wrap on narrow viewports so
+    # mobile users don't have to scroll horizontally. pre-wrap preserves
+    # the existing newlines and indentation; overflow-wrap lets long
+    # unbreakable tokens (urls, the '====' underlines, iso timestamps)
+    # break at any character rather than push the viewport wider.
     return (
         "<!doctype html>\n"
         "<html lang=\"en\"><head>\n"
@@ -295,6 +293,7 @@ def render_page(
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
         "<meta name=\"robots\" content=\"noindex\">\n"
         f"<title>reveille -- {h(CITY)} -- {now.strftime('%Y-%m-%d')}</title>\n"
+        "<style>pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>\n"
         "</head><body>\n"
         f"<pre>{body}</pre>\n"
         "</body></html>\n"
