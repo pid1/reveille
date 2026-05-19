@@ -3,17 +3,28 @@
 option A (preferred): gridstatus.io rest api (requires GRIDSTATUS_API_KEY).
 option C (fallback): scrape ercot's real-time system conditions html page.
 
-option A gives a real conservation-alert level; option C only gives raw
-load / generation numbers from which stress must be inferred. the
-fetcher tries A first iff a key is configured, else goes straight to C.
+option A gives a real conservation-alert level (Energy Emergency Alert
+stage 0/1/2/3); option C only gives raw load / generation numbers from
+which stress must be inferred. the fetcher tries A first iff a key is
+configured, else goes straight to C.
 
 NOTE: highest-fragility source. ercot can change either endpoint at any
 time. unavailable envelope is the expected behavior when that happens.
+
+gridstatus.io dataset notes:
+  - ercot_current_conditions: replaces the old ercot_energy_emergency_alert
+    dataset (RTC+B rollout on 2025-12-05). columns: time_utc, eea_level
+    (INTEGER 0..3), energy_level_value, state, title, condition_note.
+  - ercot_load: columns interval_start_utc, interval_end_utc, load (MW).
+  - free-tier rate limit is 1 request per second; back-to-back queries
+    must be spaced or one will 429. we sleep between them and do a
+    single one-shot retry on 429.
 """
 
 from __future__ import annotations
 
 import os
+import time
 from html.parser import HTMLParser
 
 from fetchers.base import get_json, get_text
@@ -21,35 +32,71 @@ from fetchers.base import get_json, get_text
 ERCOT_RT_URL = "https://www.ercot.com/content/cdr/html/real_time_system_conditions.html"
 GRIDSTATUS_BASE = "https://api.gridstatus.io/v1"
 
+# free-tier limit is 1 req/sec. add headroom.
+_GRIDSTATUS_MIN_SPACING_S = 1.15
+
+
+def _get_json_with_429_retry(url: str, headers: dict) -> dict:
+    """get_json wrapper that retries once on HTTP 429 after a short sleep."""
+    try:
+        return get_json(url, headers=headers)
+    except RuntimeError as e:
+        # fetchers.base raises RuntimeError("HTTP 429 from ...") for 429s.
+        if "HTTP 429" not in str(e):
+            raise
+        time.sleep(_GRIDSTATUS_MIN_SPACING_S)
+        return get_json(url, headers=headers)
+
 
 def _fetch_gridstatus() -> dict:
-    """option A: query gridstatus.io for the current ercot conservation alert level
-    and load. errors here bubble up to the caller; safe() / fallback handles them.
+    """option A: query gridstatus.io for the current ercot EEA level and load.
+    errors here bubble up to the caller; safe() / fallback handles them.
     """
     key = os.environ.get("GRIDSTATUS_API_KEY")
     if not key:
         raise RuntimeError("GRIDSTATUS_API_KEY not set")
     headers = {"x-api-key": key, "accept": "application/json"}
 
-    # the conservation/alert dataset name has shifted over time; we make a best
-    # effort. failure here surfaces as `unavailable` and we never block on it.
-    # ask for the most recent row from ercot_eea (energy emergency alert) status.
     out: dict = {}
+
+    # current grid condition (includes EEA level when one is active)
     try:
-        eea = get_json(
-            f"{GRIDSTATUS_BASE}/datasets/ercot_energy_emergency_alert/query"
+        cc = _get_json_with_429_retry(
+            f"{GRIDSTATUS_BASE}/datasets/ercot_current_conditions/query"
             "?limit=1&order=desc",
             headers=headers,
         )
-        rows = eea.get("data") if isinstance(eea, dict) else None
+        rows = cc.get("data") if isinstance(cc, dict) else None
         if rows:
-            out["alert_level"] = str(rows[0].get("status") or rows[0].get("alert_level") or "").strip()
+            row = rows[0]
+            # prefer the human-readable title (e.g. "Normal",
+            # "Energy Emergency Alert Level 2") for the existing
+            # alert_level string field consumed by render/summarize.
+            title = (row.get("title") or "").strip()
+            note = (row.get("condition_note") or "").strip()
+            eea = row.get("eea_level")
+            if title:
+                out["alert_level"] = title
+            elif eea is not None:
+                out["alert_level"] = (
+                    f"EEA Level {int(eea)}" if int(eea) > 0 else "Normal"
+                )
+            if eea is not None:
+                try:
+                    out["eea_level"] = int(eea)
+                except (TypeError, ValueError):
+                    pass
+            if note and note.lower() != "normal":
+                out["condition_note"] = note
     except Exception as e:
         out["alert_level_err"] = f"{type(e).__name__}: {e}"
 
+    # space the next call to stay under the 1 req/sec free-tier cap
+    time.sleep(_GRIDSTATUS_MIN_SPACING_S)
+
     # current actual load
     try:
-        load = get_json(
+        load = _get_json_with_429_retry(
             f"{GRIDSTATUS_BASE}/datasets/ercot_load/query?limit=1&order=desc",
             headers=headers,
         )
