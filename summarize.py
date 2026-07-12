@@ -1,4 +1,4 @@
-"""ai morning-summary generation. claude sonnet 4.6 via direct anthropic api call.
+"""ai morning-summary generation. claude sonnet 5 via direct anthropic api call.
 
 prompt lives in prompts/summary_system.md and is read at import time. the
 formatted data blob lives here, not in the prompt, because it depends on
@@ -19,7 +19,7 @@ if not SYSTEM_PROMPT:
 
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-sonnet-5"
 
 
 # -- data blob formatting --------------------------------------------------
