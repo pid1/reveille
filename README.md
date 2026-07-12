@@ -8,7 +8,7 @@ a plaintext daily morning briefing for highland village, tx. one static html pag
 - ercot grid status
 - highland village emergency, police, and fire rss feeds (most recent 14 days)
 - geolocated incidents from s2 underground's ghostmaps common intelligence picture, filtered to within 25 miles and the last 24 hours
-- short ai-generated summary at the top (claude sonnet 4.6), with graceful fallback to raw data if the summary call fails
+- short ai-generated summary at the top (claude sonnet 5), with graceful fallback to raw data if the summary call fails
 
 ## why minimal data transfer matters
 
