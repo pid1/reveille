@@ -139,4 +139,28 @@ def generate_summary(data_blob_text: str) -> str:
             "anthropic-version": ANTHROPIC_VERSION,
         },
     )
-    return resp["content"][0]["text"]
+    return _extract_text(resp)
+
+
+def _extract_text(resp: dict) -> str:
+    """pull the assistant text out of a messages-api response.
+
+    the response `content` is a list of typed blocks. we cannot assume the
+    first block is text: claude-sonnet-5 runs adaptive thinking by default, so
+    content[0] is often a `thinking` block (no "text" key). find the first
+    text block instead of indexing blindly -- that's what produced the
+    `KeyError: 'text'` in the BLUF.
+    """
+    content = resp.get("content") or []
+    parts = [
+        block["text"]
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text" and "text" in block
+    ]
+    if not parts:
+        stop = resp.get("stop_reason")
+        raise RuntimeError(
+            f"no text block in response (stop_reason={stop!r}, "
+            f"block types={[b.get('type') for b in content if isinstance(b, dict)]})"
+        )
+    return "\n".join(parts)
