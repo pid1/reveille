@@ -1,0 +1,59 @@
+name: keepalive
+
+# Public-repo scheduled workflows are disabled after 60 days of no repository
+# activity. reveille's daily build doesn't commit anything, so nothing resets
+# that clock on its own. This commits a timestamp once the repo goes quiet.
+
+on:
+  schedule:
+    - cron: '23 8 * * 1'   # Mondays 08:23 UTC (off the top of the hour)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Commit even if under the age threshold (for testing)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Commit if the repo has been quiet
+        env:
+          THRESHOLD_DAYS: 30
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+
+          last=$(git log -1 --format=%ct)
+          days=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "Last commit: $days day(s) ago (threshold: ${THRESHOLD_DAYS})."
+
+          if [ "$days" -lt "$THRESHOLD_DAYS" ] && [ "$FORCE" != "true" ]; then
+            echo "Under threshold; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          date -u +'%Y-%m-%dT%H:%M:%SZ' > .github/keepalive
+
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/keepalive
+
+          if git diff --cached --quiet; then
+            echo "Timestamp unchanged; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: keepalive (repo quiet for ${days} days)"
+          git push
+          echo "Pushed keepalive commit after ${days} quiet day(s)." >> "$GITHUB_STEP_SUMMARY"
