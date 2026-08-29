@@ -84,7 +84,7 @@ def _fetch_gridstatus() -> dict:
             if eea is not None:
                 try:
                     out["eea_level"] = int(eea)
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     pass
             if note and note.lower() != "normal":
                 out["condition_note"] = note
@@ -111,8 +111,8 @@ def _fetch_gridstatus() -> dict:
     if not out or (set(out.keys()) <= {"alert_level_err", "load_err"}):
         raise RuntimeError(
             "gridstatus.io returned no usable fields "
-            f"(alert_err={out.get('alert_level_err','-')}, "
-            f"load_err={out.get('load_err','-')})"
+            f"(alert_err={out.get('alert_level_err', '-')}, "
+            f"load_err={out.get('load_err', '-')})"
         )
 
     out["source"] = "gridstatus.io"
@@ -191,7 +191,9 @@ def _fetch_ercot_html() -> dict:
         raise RuntimeError("could not parse ercot real-time system conditions")
 
     demand = _to_int(pairs.get("Actual System Demand", ""))
-    capacity = _to_int(pairs.get("Total System Capacity (not including Ancillary Services)", ""))
+    capacity = _to_int(
+        pairs.get("Total System Capacity (not including Ancillary Services)", "")
+    )
     wind = _to_int(pairs.get("Total Wind Output", ""))
     pvgr = _to_int(pairs.get("Total PVGR Output", ""))
     freq = _to_float(pairs.get("Current Frequency", ""))

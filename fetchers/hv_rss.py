@@ -5,7 +5,7 @@ three feeds, same shape. keep entries from the last 14 days.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from time import struct_time
 
 import feedparser
@@ -27,8 +27,8 @@ def _to_central(parsed: struct_time | None) -> datetime | None:
         return None
     # feedparser returns parsed times in utc as time.struct_time
     try:
-        dt_utc = datetime(*parsed[:6], tzinfo=timezone.utc)
-    except (TypeError, ValueError):
+        dt_utc = datetime(*parsed[:6], tzinfo=UTC)
+    except TypeError, ValueError:
         return None
     return dt_utc.astimezone(TIMEZONE)
 
@@ -37,7 +37,9 @@ def _entries_from(url: str) -> list[dict]:
     fp = feedparser.parse(url)
     # cutoff at midnight `MAX_AGE_DAYS` ago, not now - 14d (which half-clips
     # by current-time-of-day)
-    today_midnight = datetime.now(TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight = datetime.now(TIMEZONE).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     cutoff = today_midnight - timedelta(days=MAX_AGE_DAYS)
     out: list[dict] = []
     for e in fp.entries or []:
@@ -50,7 +52,9 @@ def _entries_from(url: str) -> list[dict]:
             {
                 "title": (getattr(e, "title", "") or "").strip(),
                 "link": getattr(e, "link", "") or "",
-                "published": published.isoformat(timespec="minutes") if published else "",
+                "published": published.isoformat(timespec="minutes")
+                if published
+                else "",
                 "summary": truncate(strip_html(getattr(e, "summary", "") or ""), 300),
             }
         )

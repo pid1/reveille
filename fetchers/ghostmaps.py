@@ -40,8 +40,18 @@ _MONTHS = {
     m: i
     for i, m in enumerate(
         [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December",
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
         ],
         start=1,
     )
@@ -65,10 +75,13 @@ def _gh_headers() -> dict:
 
 def _list_dir() -> list[dict]:
     from urllib.parse import quote
+
     url = f"https://api.github.com/repos/{REPO}/contents/{quote(DIR_PATH)}"
     items = get_json(url, headers=_gh_headers())
     if not isinstance(items, list):
-        raise RuntimeError(f"unexpected response listing {DIR_PATH}: {type(items).__name__}")
+        raise RuntimeError(
+            f"unexpected response listing {DIR_PATH}: {type(items).__name__}"
+        )
     return items
 
 
@@ -89,7 +102,11 @@ def _parse_filename_date(name: str) -> tuple[datetime, int] | None:
 
 def _select_latest(files: list[dict]) -> tuple[dict, str]:
     """returns (file_entry, strategy_used)."""
-    candidates = [f for f in files if f.get("type") == "file" and f.get("name", "").lower().endswith(".kmz")]
+    candidates = [
+        f
+        for f in files
+        if f.get("type") == "file" and f.get("name", "").lower().endswith(".kmz")
+    ]
     if not candidates:
         raise RuntimeError("no .kmz files found in master database")
 
@@ -105,6 +122,7 @@ def _select_latest(files: list[dict]) -> tuple[dict, str]:
 
     # fallback: commit history (one extra api call per candidate, scoped)
     from urllib.parse import quote
+
     best = None
     best_ts = ""
     for f in candidates[:25]:  # cap to be polite
@@ -263,11 +281,16 @@ _DISPLAY_FIELDS: list[tuple[str, str]] = [
 ]
 
 _CASUALTY_FIELDS = [
-    "Enemy Killed", "Enemy Wounded",
-    "Friendly Killed", "Friendly Wounded",
-    "Civilian Killed", "Civilian Wounded",
-    "Neutral Killed", "Neutral Wounded",
-    "Unknown Killed", "Unknown Wounded",
+    "Enemy Killed",
+    "Enemy Wounded",
+    "Friendly Killed",
+    "Friendly Wounded",
+    "Civilian Killed",
+    "Civilian Wounded",
+    "Neutral Killed",
+    "Neutral Wounded",
+    "Unknown Killed",
+    "Unknown Wounded",
 ]
 
 
@@ -288,7 +311,9 @@ def _norm_value(raw: str) -> str:
     return txt
 
 
-def _parse_description(desc_html: str) -> tuple[dict[str, str], list[str], dict[str, str]]:
+def _parse_description(
+    desc_html: str,
+) -> tuple[dict[str, str], list[str], dict[str, str]]:
     """parse a placemark description html.
 
     returns (fields, research_urls, casualties) where:
@@ -385,8 +410,22 @@ def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
 
 
 _COMPASS_16 = [
-    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
 ]
 
 
@@ -433,14 +472,20 @@ def fetch() -> dict:
     seen: set[tuple[str, float, float]] = set()
     # cutoff at midnight `MAX_AGE_DAYS` ago, so the window includes all of
     # the boundary day rather than half-clipping by current-time-of-day
-    today_midnight = datetime.now(TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight = datetime.now(TIMEZONE).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     cutoff = today_midnight - timedelta(days=MAX_AGE_DAYS)
 
     for pm in _iter_placemarks(root):
         total += 1
         try:
             name_el = _direct_child(pm, "name")
-            name = (name_el.text or "").strip() if name_el is not None and name_el.text else ""
+            name = (
+                (name_el.text or "").strip()
+                if name_el is not None and name_el.text
+                else ""
+            )
             if not name:
                 skipped += 1
                 continue
@@ -459,7 +504,9 @@ def fetch() -> dict:
             desc_el = _direct_child(pm, "description")
             desc_text = desc_el.text if desc_el is not None else ""
             folder = _enclosing_folder(pm, root)
-            parsed_fields, research_urls, casualties = _parse_description(desc_text or "")
+            parsed_fields, research_urls, casualties = _parse_description(
+                desc_text or ""
+            )
 
             # recency filter: drop anything older than the cutoff, or anything
             # without a parseable Date field. installations (safehouses, etc.)

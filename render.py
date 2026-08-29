@@ -18,8 +18,7 @@ from datetime import datetime
 from html import escape as h
 from typing import Any
 
-from config import CITY, STATE
-
+from config import CITY
 
 COL = 48  # target line width for plaintext wrap. tuned so output of _wrap()
 # fits a typical mobile viewport (~360-430px) at the browser-default
@@ -62,6 +61,7 @@ def _wrap(text: str, indent: str = "  ", width: int = COL) -> str:
     returns a single string with embedded newlines.
     """
     import textwrap
+
     if not text:
         return ""
     return textwrap.fill(
@@ -284,6 +284,7 @@ def _linkify(text: str) -> str:
     """
     import re
     from urllib.parse import urlsplit
+
     # quote=False: inside <pre> text we only need to escape & < >, not ' or ".
     # this keeps Austin Metcalf's as a literal apostrophe in view-source.
     escaped = h(text, quote=False)
@@ -305,8 +306,7 @@ def _linkify(text: str) -> str:
             host = (urlsplit(url).hostname or "").lower()
         except ValueError:
             host = ""
-        if host.startswith("www."):
-            host = host[4:]
+        host = host.removeprefix("www.")
         label = host or url
         # the href value still needs the same escape pass; h() over the
         # already-escaped url is fine because & < > stay encoded.
@@ -368,10 +368,10 @@ def render_page(
     # break at any character rather than push the viewport wider.
     return (
         "<!doctype html>\n"
-        "<html lang=\"en\"><head>\n"
-        "<meta charset=\"utf-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        "<meta name=\"robots\" content=\"noindex\">\n"
+        '<html lang="en"><head>\n'
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<meta name="robots" content="noindex">\n'
         f"<title>reveille -- {h(CITY)} -- {now.strftime('%Y-%m-%d')}</title>\n"
         "<style>pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>\n"
         "</head><body>\n"

@@ -35,7 +35,7 @@ def _fmt_nws_alerts(env: dict) -> str:
     for a in alerts:
         parts.append(
             f"- {a['event']} / {a['severity']} / {a['urgency']}: {a['headline']} "
-            f"(expires {a.get('expires','')})"
+            f"(expires {a.get('expires', '')})"
         )
     return "\n" + "\n".join(parts)
 
@@ -83,7 +83,9 @@ def _fmt_rss(env: dict, key: str) -> str:
         return "none in last 14d"
     lines = []
     for e in items[:8]:
-        lines.append(f"- {e.get('published','?')} :: {e.get('title','')} :: {e.get('summary','')}")
+        lines.append(
+            f"- {e.get('published', '?')} :: {e.get('title', '')} :: {e.get('summary', '')}"
+        )
     return "\n" + "\n".join(lines)
 
 
@@ -93,7 +95,7 @@ def _fmt_ghostmaps(env: dict) -> str:
     d = env["data"] or {}
     nearby = d.get("nearby") or []
     if not nearby:
-        return f"none within 25mi (source: {d.get('source_file','?')})"
+        return f"none within 25mi (source: {d.get('source_file', '?')})"
     lines = []
     for n in nearby[:20]:
         folder = f" [{n['folder']}]" if n.get("folder") else ""
