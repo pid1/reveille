@@ -2,8 +2,8 @@ name: build dashboard
 
 on:
   schedule:
-    - cron: '17 9 * * *'   # daily at 09:17 UTC (~4am CDT / ~3am CST)
-  workflow_dispatch:        # manual trigger via UI or `gh workflow run`
+    - cron: "17 9 * * *" # daily at 09:17 UTC (~4am CDT / ~3am CST)
+  workflow_dispatch: # manual trigger via UI or `gh workflow run`
   push:
     branches: [main]
 
