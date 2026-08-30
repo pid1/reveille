@@ -1,6 +1,7 @@
 """nws active alerts for the configured point."""
 
 from config import LAT, LON
+
 from fetchers.base import get_json, truncate
 
 

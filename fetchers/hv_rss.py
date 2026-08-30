@@ -9,8 +9,8 @@ from datetime import UTC, datetime, timedelta
 from time import struct_time
 
 import feedparser
-
 from config import TIMEZONE
+
 from fetchers.base import strip_html, truncate
 
 FEEDS = {

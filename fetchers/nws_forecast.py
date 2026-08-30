@@ -1,6 +1,7 @@
 """3-day forecast from nws (6 periods, day+night pairs)."""
 
 from config import LAT, LON
+
 from fetchers.base import get_json
 
 

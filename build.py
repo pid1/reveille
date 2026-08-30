@@ -13,6 +13,7 @@ from pathlib import Path
 
 # import config first so missing env vars fail loudly before any fetching
 from config import TIMEZONE
+
 from fetchers import ercot, ghostmaps, hv_rss, nws_alerts, nws_forecast
 from fetchers.base import safe, unavailable
 

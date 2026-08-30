@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from math import asin, atan2, cos, degrees, radians, sin, sqrt
 
 from config import GHOSTMAPS_RADIUS_MILES, LAT, LON, TIMEZONE
+
 from fetchers.base import extract_hrefs, get_bytes, get_json, strip_html, truncate
 
 # show only incidents dated today or yesterday. ghostmaps Date fields are
