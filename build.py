@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 # import config first so missing env vars fail loudly before any fetching
-from config import TIMEZONE  # noqa: F401  (triggers env validation)
+from config import TIMEZONE
 
 from fetchers import ercot, ghostmaps, hv_rss, nws_alerts, nws_forecast
 from fetchers.base import safe, unavailable
@@ -38,7 +38,11 @@ def _gather() -> dict:
     sections["ghostmaps"] = safe(ghostmaps.fetch)
 
     for k, v in sections.items():
-        print(f"[build]   {k}: {v['status']}" + (f" ({v['error']})" if v["error"] else ""), flush=True)
+        print(
+            f"[build]   {k}: {v['status']}"
+            + (f" ({v['error']})" if v["error"] else ""),
+            flush=True,
+        )
     return sections
 
 
@@ -54,6 +58,7 @@ def _generate_summary(sections: dict) -> dict:
         print("[build] generating ai summary ...", flush=True)
         text = generate_summary(blob)
         from fetchers.base import ok
+
         return ok(text.strip())
     except Exception as e:
         print(f"[build] ai summary failed: {type(e).__name__}: {e}", flush=True)
@@ -68,11 +73,7 @@ def main() -> int:
     sections = _gather()
     summary = _generate_summary(sections)
 
-    commit_sha = (
-        os.environ.get("GITHUB_SHA")
-        or os.environ.get("GIT_COMMIT")
-        or None
-    )
+    commit_sha = os.environ.get("GITHUB_SHA") or os.environ.get("GIT_COMMIT") or None
     if commit_sha:
         commit_sha = commit_sha[:7]
 
@@ -92,9 +93,13 @@ def main() -> int:
     # present and not the NSTR sentinel.
     try:
         from notifier import send_pushover  # local import; module is optional
+
         send_pushover(summary, now)
     except Exception as e:
-        print(f"[build] pushover step crashed unexpectedly: {type(e).__name__}: {e}", flush=True)
+        print(
+            f"[build] pushover step crashed unexpectedly: {type(e).__name__}: {e}",
+            flush=True,
+        )
 
     return 0
 

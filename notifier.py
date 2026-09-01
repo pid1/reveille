@@ -37,12 +37,12 @@ _MAX_TITLE_CHARS = 250
 
 def _page_url() -> str | None:
     """resolve the live page url. preference order:
-      1. REVEILLE_PAGE_URL env var (explicit override).
-      2. derived from GITHUB_REPOSITORY in github actions (owner/repo ->
-         https://owner.github.io/repo/, which matches the README's stated
-         hosting location).
-      3. None -- the notifier still works, the supplementary url just gets
-         omitted from the push.
+    1. REVEILLE_PAGE_URL env var (explicit override).
+    2. derived from GITHUB_REPOSITORY in github actions (owner/repo ->
+       https://owner.github.io/repo/, which matches the README's stated
+       hosting location).
+    3. None -- the notifier still works, the supplementary url just gets
+       omitted from the push.
     """
     explicit = os.environ.get("REVEILLE_PAGE_URL", "").strip()
     if explicit:
@@ -81,7 +81,10 @@ def send_pushover(summary_envelope: dict | None, now: datetime) -> None:
     token = os.environ.get("PUSHOVER_API_KEY", "").strip()
     user_key = os.environ.get("PUSHOVER_USER_KEY", "").strip()
     if not token or not user_key:
-        print("[pushover] skipped: PUSHOVER_API_KEY or PUSHOVER_USER_KEY not set", flush=True)
+        print(
+            "[pushover] skipped: PUSHOVER_API_KEY or PUSHOVER_USER_KEY not set",
+            flush=True,
+        )
         return
 
     should, reason = _should_send(summary_envelope)

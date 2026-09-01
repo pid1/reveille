@@ -6,11 +6,11 @@ name: keepalive
 
 on:
   schedule:
-    - cron: '23 8 * * 1'   # Mondays 08:23 UTC (off the top of the hour)
+    - cron: "23 8 * * 1" # Mondays 08:23 UTC (off the top of the hour)
   workflow_dispatch:
     inputs:
       force:
-        description: 'Commit even if under the age threshold (for testing)'
+        description: "Commit even if under the age threshold (for testing)"
         type: boolean
         default: false
 

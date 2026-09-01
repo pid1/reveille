@@ -11,9 +11,10 @@ import html as html_module
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from datetime import datetime
 from html.parser import HTMLParser
-from typing import Any, Callable
+from typing import Any
 
 from config import TIMEZONE
 
@@ -86,16 +87,22 @@ def _request(
         raise RuntimeError(f"network error fetching {url}: {e.reason}") from e
 
 
-def get_json(url: str, headers: dict | None = None, timeout: float = DEFAULT_TIMEOUT) -> Any:
+def get_json(
+    url: str, headers: dict | None = None, timeout: float = DEFAULT_TIMEOUT
+) -> Any:
     raw = _request("GET", url, headers=headers, timeout=timeout)
     return json.loads(raw.decode("utf-8"))
 
 
-def get_bytes(url: str, headers: dict | None = None, timeout: float = DEFAULT_TIMEOUT) -> bytes:
+def get_bytes(
+    url: str, headers: dict | None = None, timeout: float = DEFAULT_TIMEOUT
+) -> bytes:
     return _request("GET", url, headers=headers, timeout=timeout)
 
 
-def get_text(url: str, headers: dict | None = None, timeout: float = DEFAULT_TIMEOUT) -> str:
+def get_text(
+    url: str, headers: dict | None = None, timeout: float = DEFAULT_TIMEOUT
+) -> str:
     raw = _request("GET", url, headers=headers, timeout=timeout)
     return raw.decode("utf-8", errors="replace")
 
@@ -129,6 +136,7 @@ def post_form(
     as json. used for apis like pushover that don't accept json bodies.
     """
     import urllib.parse
+
     h = {"content-type": "application/x-www-form-urlencoded"}
     if headers:
         h.update(headers)
@@ -176,9 +184,12 @@ def extract_hrefs(s: str) -> list[str]:
     accepts single or double quotes, decodes html entities in the url.
     """
     import re
+
     global _HREF_RE
     if _HREF_RE is None:
-        _HREF_RE = re.compile(r"""<a\b[^>]*?\bhref\s*=\s*(['"])(.*?)\1""", re.IGNORECASE | re.DOTALL)
+        _HREF_RE = re.compile(
+            r"""<a\b[^>]*?\bhref\s*=\s*(['"])(.*?)\1""", re.IGNORECASE | re.DOTALL
+        )
     if not s:
         return []
     seen: set[str] = set()
