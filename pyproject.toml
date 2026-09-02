@@ -8,4 +8,7 @@ dependencies = [
 ]
 
 [tool.uv]
-# default settings are fine
+# Wait a week before resolving a newly published version. A package that
+# is compromised upstream is usually caught within days, and nothing here
+# needs a release the hour it lands.
+exclude-newer = "7 days"
