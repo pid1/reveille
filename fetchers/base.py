@@ -75,8 +75,8 @@ def _request(
         h.update(headers)
     req = urllib.request.Request(url, data=body, headers=h, method=method)
     try:
-        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         # The URL is a feed this deployment is configured to poll, not user input.
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read()
     except urllib.error.HTTPError as e:
