@@ -16,9 +16,12 @@ on:
     # turns every later attempt into a no-op, so this still produces exactly
     # one briefing per day.
     - cron: "17,37,57 9-13 * * *"
-  # The primary trigger. An external caller that owns its own clock runs
-  # scripts/trigger-build.sh at 04:17 local, which starts the workflow
-  # through this event and bypasses GitHub's schedule queue entirely.
+  # The primary trigger. A Cloudflare Worker (infra/cloudflare/) calls the
+  # workflow_dispatch API at 04:17 central, which starts the workflow through
+  # this event and bypasses GitHub's schedule queue entirely. It runs on
+  # Cloudflare rather than local hardware so the briefing does not depend on
+  # a box at the house staying up. scripts/trigger-build.sh does the same
+  # from a shell.
   workflow_dispatch: # manual trigger via UI, `gh workflow run`, or the API
   push:
     branches: [main]

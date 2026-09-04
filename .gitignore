@@ -5,3 +5,5 @@ __pycache__/
 .env
 PROJECT_PLAN.md
 .DS_Store
+node_modules/
+.wrangler/

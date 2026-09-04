@@ -87,20 +87,32 @@ setup uses the [github cli](https://cli.github.com/) (`gh`). run from a clone of
 
 github's `schedule` event is best-effort. it has deferred this repo's cron
 dispatches by four to eight hours at a stretch, which turns a morning
-briefing into a mid-morning one, so the crons in `build.yml` are a fallback
-rather than the primary trigger. the primary trigger is
-`scripts/trigger-build.sh`, run from cron on a machine whose clock you
-control:
+briefing into a mid-morning one. so the crons in `build.yml` are a backstop,
+not the primary trigger.
 
-```cron
-17 4 * * *  REVEILLE_DISPATCH_TOKEN=... /path/to/reveille/scripts/trigger-build.sh
+the primary trigger is a cloudflare worker in `infra/cloudflare/` that calls
+the `workflow_dispatch` api at 04:17 central. that event is dispatched
+immediately rather than queued. it lives on cloudflare's edge rather than on
+a box at the house on purpose -- a local trigger would just trade github's
+unreliable clock for a power cut or an isp outage:
+
+```bash
+cd infra/cloudflare
+npx wrangler login
+npx wrangler secret put GITHUB_TOKEN   # fine-grained pat, `actions: read and write` only
+npx wrangler deploy
 ```
 
-the token is a fine-grained pat scoped to this repository with a single
-permission, `actions: read and write`.
+daylight saving is handled in the worker rather than in config -- it
+schedules both candidate utc times and dispatches on whichever one is 04:17
+central.
 
-the measurements behind all of this, the fallback crons, and what to check
-if it starts happening again are in [docs/scheduling.md](docs/scheduling.md).
+`scripts/trigger-build.sh` does the same job from a shell if you would
+rather run it from a machine you own, or need to fire one manually.
+
+the measurements behind all of this, the backstop crons, the pat scoping,
+and what to check if it starts happening again are in
+[docs/scheduling.md](docs/scheduling.md).
 
 ## caveats
 

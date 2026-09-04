@@ -82,31 +82,89 @@ name like reveille, that is a requirements mismatch, not a bug to file.
 
 two paths, because the reliable one lives outside github.
 
-### primary: external dispatch
+### primary: a cloudflare worker
 
-`scripts/trigger-build.sh` calls the `workflow_dispatch` api directly. that
-event is dispatched immediately -- it never enters the schedule queue that
-is being deferred. run it from cron on a machine whose clock you control:
+`infra/cloudflare/` is a worker whose only job is to call the
+`workflow_dispatch` api on a schedule. that event is dispatched immediately
+-- it never enters the schedule queue that is being deferred.
+
+it runs on cloudflare's edge rather than on a machine at the house on
+purpose. a trigger that lives on local hardware trades github's unreliable
+clock for a power cut, a dead sd card, or an isp outage, which is not an
+improvement. cloudflare cron triggers are on the free plan.
+
+setup, from `infra/cloudflare/`:
+
+```bash
+npx wrangler login
+npx wrangler secret put GITHUB_TOKEN        # paste the pat, see below
+npx wrangler deploy
+```
+
+optionally, to get a push when every dispatch attempt fails -- reusing the
+same pushover app the briefing itself uses:
+
+```bash
+npx wrangler secret put PUSHOVER_API_KEY
+npx wrangler secret put PUSHOVER_USER_KEY
+```
+
+the token is a fine-grained personal access token, scoped to this
+repository only, with exactly one permission: **actions: read and write**.
+that is enough to start a workflow run and does not grant reading secrets,
+writing contents, or pushing. `workflow_dispatch` is used rather than
+`repository_dispatch` precisely because of this: `repository_dispatch`
+would require **contents: read and write**, a much broader grant for the
+same result.
+
+fine-grained pats expire. set a calendar reminder, or the trigger will fail
+silently on whatever morning it lapses -- which is what the optional
+pushover alert is for.
+
+#### daylight saving
+
+cloudflare cron triggers are utc and do not follow dst, so `wrangler.toml`
+schedules both candidate times and the worker decides which one is 04:17
+central:
+
+```toml
+crons = ["17 9 * * *", "17 10 * * *"]
+```
+
+in cdt the 09:17 utc firing is 04:17 local and proceeds, and the 10:17 one
+is 05:17 and skips. in cst it is the other way round. verified across every
+day of 2026: exactly one firing dispatches per day, at 04:17 local, on both
+sides of both transitions. nothing to change twice a year.
+
+#### checking on it
+
+```bash
+npx wrangler tail                    # live logs
+npx wrangler deployments list        # what is actually deployed
+```
+
+a normal morning logs one `dispatched build.yml on pid1/reveille@main` and
+one `skip: 5:xx in America/Chicago` an hour either side of it.
+
+### alternative: cron on a machine you own
+
+`scripts/trigger-build.sh` does the same thing from a shell, for a local
+box, a vps, or a one-off manual run:
 
 ```cron
 17 4 * * *  REVEILLE_DISPATCH_TOKEN=... /path/to/reveille/scripts/trigger-build.sh
 ```
 
-auth is a fine-grained personal access token, scoped to this repository
-only, with exactly one permission: **actions: read and write**. that is
-enough to start a workflow run and does not grant reading secrets, writing
-contents, or pushing. `workflow_dispatch` is used rather than
-`repository_dispatch` precisely because of this: `repository_dispatch`
-would require **contents: read and write**, a much broader grant for the
-same result.
-
-the script exits non-zero when every attempt fails, so cron will mail you
-on the mornings the briefing did not get triggered.
+same token, same api. it exits non-zero when every attempt fails, so cron
+will mail you on the mornings the briefing did not get triggered. unlike
+the worker it has no dst handling -- system cron already runs it in local
+time.
 
 ### fallback: spread crons plus a gate
 
-github's own scheduler still runs, as a backstop for when the external
-caller is down. rather than one dispatch that may land anywhere in the day,
+github's own scheduler still runs, as a backstop for when the worker is
+down -- the two paths know nothing about each other, and both are safe to
+fire on the same morning. rather than one dispatch that may land anywhere in the day,
 `build.yml` asks for fifteen across a 4.5-hour window:
 
 ```yaml

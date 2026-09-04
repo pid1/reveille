@@ -1,0 +1,23 @@
+name = "reveille-trigger"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# Cloudflare cron triggers are UTC and do not follow DST, so both candidate
+# times are scheduled and worker.js decides which firing is TARGET_HOUR in
+# TARGET_TZ. 09:17 UTC is 04:17 CDT; 10:17 UTC is 04:17 CST. Exactly one of
+# the two proceeds on any given morning.
+[triggers]
+crons = ["17 9 * * *", "17 10 * * *"]
+
+[vars]
+REPO = "pid1/reveille"
+WORKFLOW = "build.yml"
+REF = "main"
+TARGET_TZ = "America/Chicago"
+TARGET_HOUR = "4"
+
+# GITHUB_TOKEN is a secret, not a var. Set it with:
+#   wrangler secret put GITHUB_TOKEN
+# Optional, for an alert when every dispatch attempt fails:
+#   wrangler secret put PUSHOVER_API_KEY
+#   wrangler secret put PUSHOVER_USER_KEY
