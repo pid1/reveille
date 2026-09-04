@@ -28,7 +28,7 @@ the cost: it looks like the drudge report. no animations, no fancy typography, n
 - python 3.14
 - [uv](https://docs.astral.sh/uv/) for package management
 - one third-party dependency: `feedparser`. all other http and parsing is stdlib (`urllib.request`, `xml.etree.ElementTree`, `html.parser`, `zipfile`).
-- github actions for the daily build
+- github actions for the daily build (triggered externally -- see [scheduling](#scheduling))
 - github pages for hosting
 
 the http layer is deliberately stdlib-only. `httpx` was the obvious choice for a python http client, but as of mid-2026 it's in a maintenance transition (upstream stopped accepting bug reports earlier this year, a rewrite is in progress) and we'd rather not adopt a known migration. `urllib.request` is verbose but it's not going anywhere. a small wrapper in `fetchers/base.py` keeps the call sites clean.
@@ -80,6 +80,39 @@ setup uses the [github cli](https://cli.github.com/) (`gh`). run from a clone of
 4. enable pages at `settings -> pages -> source -> "github actions"` (web ui only)
 5. push to main, or trigger manually via `gh workflow run "build dashboard"` or the actions tab in the ui
 6. page lives at `pid1.github.io/reveille/`
+7. set up the external build trigger -- see [scheduling](#scheduling) below.
+   github's cron alone will not get you a 4am briefing.
+
+## scheduling
+
+github's `schedule` event is best-effort. it has deferred this repo's cron
+dispatches by four to eight hours at a stretch, which turns a morning
+briefing into a mid-morning one. so the crons in `build.yml` are a backstop,
+not the primary trigger.
+
+the primary trigger is a cloudflare worker in `infra/cloudflare/` that calls
+the `workflow_dispatch` api at 04:17 central. that event is dispatched
+immediately rather than queued. it lives on cloudflare's edge rather than on
+a box at the house on purpose -- a local trigger would just trade github's
+unreliable clock for a power cut or an isp outage:
+
+```bash
+cd infra/cloudflare
+npx wrangler login
+npx wrangler secret put GITHUB_TOKEN   # fine-grained pat, `actions: read and write` only
+npx wrangler deploy
+```
+
+daylight saving is handled in the worker rather than in config -- it
+schedules both candidate utc times and dispatches on whichever one is 04:17
+central.
+
+`scripts/trigger-build.sh` does the same job from a shell if you would
+rather run it from a machine you own, or need to fire one manually.
+
+the measurements behind all of this, the backstop crons, the pat scoping,
+and what to check if it starts happening again are in
+[docs/scheduling.md](docs/scheduling.md).
 
 ## caveats
 

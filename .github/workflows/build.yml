@@ -2,23 +2,111 @@ name: build dashboard
 
 on:
   schedule:
-    - cron: "17 9 * * *" # daily at 09:17 UTC (~4am CDT / ~3am CST)
-  workflow_dispatch: # manual trigger via UI or `gh workflow run`
+    # These are a FALLBACK, not the primary trigger. GitHub defers this
+    # repository's entire schedule queue by hours at a time -- the median
+    # dispatch delay was ~5h over the first week of September 2026, and both
+    # this workflow and keepalive.yml were deferred by the same ~7h50m on
+    # 2026-08-31 despite firing on different minutes. Moving the cron off
+    # the top of the hour did not help and could not have; see
+    # docs/scheduling.md for the measurements.
+    #
+    # So instead of one dispatch that may land anywhere in the day, ask for
+    # fifteen across a 4.5-hour window (09:17-13:57 UTC / 04:17-08:57 CDT).
+    # Whichever one GitHub actually delivers first wins; the gate job below
+    # turns every later attempt into a no-op, so this still produces exactly
+    # one briefing per day.
+    - cron: "17,37,57 9-13 * * *"
+  # The primary trigger. A Cloudflare Worker (infra/cloudflare/) calls the
+  # workflow_dispatch API at 04:17 central, which starts the workflow through
+  # this event and bypasses GitHub's schedule queue entirely. It runs on
+  # Cloudflare rather than local hardware so the briefing does not depend on
+  # a box at the house staying up. scripts/trigger-build.sh does the same
+  # from a shell.
+  workflow_dispatch: # manual trigger via UI, `gh workflow run`, or the API
   push:
     branches: [main]
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Least privilege by default; each job grants only what it needs.
+permissions: {}
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  # Decides whether this dispatch should produce a briefing. Runs before the
+  # build so a skipped attempt costs ~10 seconds and no dependency install.
+  #
+  # This job is inside the `pages` concurrency group along with everything
+  # else in the workflow, so runs strictly serialize: by the time a second
+  # attempt reaches the freshness check below, the first attempt's Pages
+  # deployment has already gone live. That is what makes the check reliable
+  # when GitHub releases a whole backlog of dispatches at once.
+  gate:
     runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Decide whether to build
+        id: decide
+        env:
+          TZ_NAME: ${{ secrets.HV_TIMEZONE }}
+          # Local times, HHMM. Outside this window a dispatch is so late that
+          # the briefing would carry the wrong day, and the next morning's
+          # attempts are the better recovery path.
+          WINDOW_OPEN: "0300"
+          WINDOW_CLOSE: "2000"
+        run: |
+          set -euo pipefail
+
+          decide() {
+            echo "build=$1" >> "$GITHUB_OUTPUT"
+            echo "$2"
+            echo "$2" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          # push and workflow_dispatch are explicit requests; honour them.
+          # Only the best-effort schedule event gets second-guessed.
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            decide true "${GITHUB_EVENT_NAME}: explicit trigger, building."
+            exit 0
+          fi
+
+          today=$(TZ="$TZ_NAME" date +%F)
+          now=$((10#$(TZ="$TZ_NAME" date +%H%M)))
+
+          if [ "$now" -lt "$((10#$WINDOW_OPEN))" ] || [ "$now" -gt "$((10#$WINDOW_CLOSE))" ]; then
+            decide false "Dispatched outside the ${WINDOW_OPEN}-${WINDOW_CLOSE} local publish window. Skipping."
+            exit 0
+          fi
+
+          owner=${GITHUB_REPOSITORY%%/*}
+          name=${GITHUB_REPOSITORY#*/}
+          page_url="https://${owner}.github.io/${name}/"
+
+          # Read the date off the live page. Only the date is extracted, so
+          # nothing from the page (which is rendered from location secrets)
+          # reaches the log.
+          #
+          # Fails open on purpose: an unreachable page must not cost a
+          # briefing, so a failed fetch reads as "nothing published yet".
+          published=$(curl -fsS --max-time 20 --retry 2 --retry-delay 5 "$page_url" 2>/dev/null \
+            | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -n 1 || true)
+
+          if [ "$published" = "$today" ]; then
+            decide false "Live page already carries ${today}. Skipping duplicate build."
+            exit 0
+          fi
+
+          decide true "Live page carries '${published:-unknown}', today is ${today}. Building."
+
+  build:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,6 +142,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
