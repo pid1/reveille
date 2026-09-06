@@ -37,20 +37,23 @@ jobs:
   # Decides whether this dispatch should produce a briefing. Runs before the
   # build so a skipped attempt costs ~10 seconds and no dependency install.
   #
-  # This job is inside the `pages` concurrency group along with everything
-  # else in the workflow, so runs strictly serialize: by the time a second
-  # attempt reaches the freshness check below, the first attempt's Pages
-  # deployment has already gone live. That is what makes the check reliable
-  # when GitHub releases a whole backlog of dispatches at once.
+  # Freshness is decided from the github-pages deployment record rather than
+  # by fetching the live page: the deployment API is not CDN-cached, needs no
+  # public reachability, and cannot be confused by an unexpected response
+  # body. See docs/scheduling.md for what went wrong with the page fetch.
   gate:
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      # Read-only access to the github-pages deployment history, which is how
+      # this job knows whether today's briefing already went out.
+      deployments: read
     outputs:
       build: ${{ steps.decide.outputs.build }}
     steps:
       - name: Decide whether to build
         id: decide
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TZ_NAME: ${{ secrets.HV_TIMEZONE }}
           # Local times, HHMM. Outside this window a dispatch is so late that
           # the briefing would carry the wrong day, and the next morning's
@@ -81,25 +84,60 @@ jobs:
             exit 0
           fi
 
-          owner=${GITHUB_REPOSITORY%%/*}
-          name=${GITHUB_REPOSITORY#*/}
-          page_url="https://${owner}.github.io/${name}/"
-
-          # Read the date off the live page. Only the date is extracted, so
-          # nothing from the page (which is rendered from location secrets)
-          # reaches the log.
+          # The github-pages deployment record is the authority on when the
+          # briefing last published. The first version of this gate fetched
+          # the live page over HTTP instead, which was wrong twice over: the
+          # page is served through a CDN that can hand back a stale copy, and
+          # a fetch that returned nothing usable was indistinguishable from
+          # "nothing published yet", so the gate failed open every morning and
+          # every fallback cron produced a second briefing. The deployment API
+          # is not cached, needs no public reachability, and does not depend on
+          # the page's HTML shape.
           #
-          # Fails open on purpose: an unreachable page must not cost a
-          # briefing, so a failed fetch reads as "nothing published yet".
-          published=$(curl -fsS --max-time 20 --retry 2 --retry-delay 5 "$page_url" 2>/dev/null \
-            | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -n 1 || true)
+          # Errors are surfaced rather than discarded -- swallowing curl's
+          # stderr is what made the original failure impossible to diagnose
+          # from the job log.
+          api() {
+            curl -sS --fail-with-body --max-time 20 --retry 2 --retry-delay 5 \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$1"
+          }
 
-          if [ "$published" = "$today" ]; then
-            decide false "Live page already carries ${today}. Skipping duplicate build."
+          deployments_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=10"
+          last_published=""
+
+          if deployments=$(api "$deployments_url"); then
+            # Newest first. Take the first one that actually reached success --
+            # a created-but-failed deployment did not update the page.
+            while read -r created statuses_url; do
+              [ -n "$created" ] || continue
+              state=$(api "${statuses_url}?per_page=1" | jq -r '.[0].state // ""') || state=""
+              if [ "$state" = "success" ]; then
+                last_published="$created"
+                break
+              fi
+            done < <(echo "$deployments" | jq -r '.[] | "\(.created_at) \(.statuses_url)"')
+          else
+            echo "could not list github-pages deployments (see the error above)"
+          fi
+
+          if [ -z "$last_published" ]; then
+            # Fails open on purpose: a briefing missed costs the morning, a
+            # duplicate costs one extra push notification.
+            decide true "No successful github-pages deployment found. Failing open and building."
             exit 0
           fi
 
-          decide true "Live page carries '${published:-unknown}', today is ${today}. Building."
+          published_day=$(TZ="$TZ_NAME" date -d "$last_published" +%F)
+
+          if [ "$published_day" = "$today" ]; then
+            decide false "Page last published ${last_published} (${published_day} local). Today is ${today}; skipping duplicate build."
+            exit 0
+          fi
+
+          decide true "Page last published ${published_day} local, today is ${today}. Building."
 
   build:
     needs: gate

@@ -175,7 +175,8 @@ whichever one github actually delivers first wins. the `gate` job turns
 every other attempt into a no-op, so this still produces exactly one
 briefing per day. the gate skips a scheduled dispatch when either:
 
-- the live page already carries today's local date, or
+- the github-pages deployment record shows the briefing already published
+  today, in local time, or
 - local time is outside 03:00-20:00, meaning the dispatch is so late that
   the briefing would be read as the wrong day. the next morning's attempts
   are the better recovery path.
@@ -183,20 +184,38 @@ briefing per day. the gate skips a scheduled dispatch when either:
 `push` and `workflow_dispatch` are explicit requests and always build; only
 the best-effort schedule event gets second-guessed.
 
-two properties worth knowing about the gate:
-
-- **it fails open.** if the live page cannot be fetched, that reads as
-  "nothing published yet" and the build proceeds. a duplicate briefing
-  costs a duplicate pushover notification; a missed one costs the morning.
-- **it does not race.** the whole workflow, gate included, is in the
-  `pages` concurrency group with `cancel-in-progress: false`, so runs
-  strictly serialize. by the time a second attempt reaches the freshness
-  check, the first attempt's pages deployment is live. this is what makes
-  the check hold when github releases a backlog of dispatches at once.
+the gate **fails open**: if it cannot establish that a briefing already
+published, it builds. a duplicate briefing costs a duplicate pushover
+notification; a missed one costs the morning.
 
 on a normal morning the first attempt builds and the other fourteen skip
 in about ten seconds each, which shows up as skipped runs in the actions
 tab. that noise is the cost of the backstop.
+
+#### why the deployment record, and not the live page
+
+the first version of this gate fetched `pid1.github.io/reveille/` and read
+the date off it. that was wrong twice over, and it shipped:
+
+- the fetch discarded curl's stderr, so a fetch that came back with nothing
+  usable was indistinguishable from "nothing published yet". on 2026-09-05
+  and 2026-09-06 it logged `Live page carries 'unknown'` and failed open,
+  and every fallback cron that got through produced a second briefing and a
+  second push notification. that is the bug this section exists to explain.
+- even when the fetch works, github pages is served through a cdn with a
+  ten-minute `max-age`. a second dispatch inside that window can be handed
+  a stale copy and build anyway. serializing the runs through the `pages`
+  concurrency group does not help with this; an earlier version of this
+  document claimed it did, which was wrong.
+
+the `github-pages` deployment record has neither problem. it is not cached,
+it does not depend on the public page being reachable from the runner, and
+it does not depend on the page's html shape. the gate takes the newest
+deployment whose status actually reached `success`, converts its
+`created_at` to local time, and compares the date.
+
+that costs the gate job a `deployments: read` grant, which is the only
+permission it holds.
 
 ## if it happens again
 
