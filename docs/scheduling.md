@@ -84,9 +84,16 @@ two paths, because the reliable one lives outside github.
 
 ### primary: a cloudflare worker
 
-`infra/cloudflare/` is a worker whose only job is to call the
-`workflow_dispatch` api on a schedule. that event is dispatched immediately
--- it never enters the schedule queue that is being deferred.
+`infra/cloudflare/` is a worker whose only job is to POST a workers builds
+deploy hook on a schedule. the hook starts a cloudflare build that checks
+out this repository, renders the page and deploys it. nothing enters
+github's schedule queue, and nothing runs on github.
+
+an earlier version of this worker called github's `workflow_dispatch` api
+instead, which fixed the clock but left the build on actions. that was the
+right first move and the wrong place to stop: a dispatched workflow is
+still a workflow, and the deferral was never the only reason to get off
+that path.
 
 it runs on cloudflare's edge rather than on a machine at the house on
 purpose. a trigger that lives on local hardware trades github's unreliable
@@ -97,7 +104,7 @@ setup, from `infra/cloudflare/`:
 
 ```bash
 npx wrangler login
-npx wrangler secret put GITHUB_TOKEN        # paste the pat, see below
+npx wrangler secret put DEPLOY_HOOK_URL     # see below
 npx wrangler deploy
 ```
 
@@ -109,17 +116,15 @@ npx wrangler secret put PUSHOVER_API_KEY
 npx wrangler secret put PUSHOVER_USER_KEY
 ```
 
-the token is a fine-grained personal access token, scoped to this
-repository only, with exactly one permission: **actions: read and write**.
-that is enough to start a workflow run and does not grant reading secrets,
-writing contents, or pushing. `workflow_dispatch` is used rather than
-`repository_dispatch` precisely because of this: `repository_dispatch`
-would require **contents: read and write**, a much broader grant for the
-same result.
+the deploy hook is created on the `reveille` worker, under **settings >
+builds > deploy hooks**. the url it gives back is the credential: anyone
+holding it can start a build of one branch of one worker, and nothing else.
 
-fine-grained pats expire. set a calendar reminder, or the trigger will fail
-silently on whatever morning it lapses -- which is what the optional
-pushover alert is for.
+that is a strictly smaller grant than what it replaced -- a fine-grained
+pat with **actions: read and write** over this repository, able to start
+any workflow in it -- and unlike the pat it does not expire, so there is no
+morning on which the trigger lapses silently. the optional pushover alert
+stays anyway, for the hook being deleted or cloudflare being down.
 
 #### daylight saving
 
@@ -152,10 +157,10 @@ one `skip: 5:xx in America/Chicago` an hour either side of it.
 box, a vps, or a one-off manual run:
 
 ```cron
-17 4 * * *  REVEILLE_DISPATCH_TOKEN=... /path/to/reveille/scripts/trigger-build.sh
+17 4 * * *  REVEILLE_DEPLOY_HOOK=https://... /path/to/reveille/scripts/trigger-build.sh
 ```
 
-same token, same api. it exits non-zero when every attempt fails, so cron
+same hook, same request. it exits non-zero when every attempt fails, so cron
 will mail you on the mornings the briefing did not get triggered. unlike
 the worker it has no dst handling -- system cron already runs it in local
 time.
@@ -168,15 +173,28 @@ fire on the same morning. rather than one dispatch that may land anywhere in the
 `build.yml` asks for fifteen across a 4.5-hour window:
 
 ```yaml
-- cron: "17,37,57 9-13 * * *" # 09:17-13:57 utc, 04:17-08:57 cdt
+- cron: "17,37,57 11-15 * * *" # 11:17-15:57 utc, 06:17-10:57 cdt
 ```
+
+the window used to start at 09:17 utc, the same minute as the primary
+trigger. that was fine while the primary was a `workflow_dispatch` into
+this same workflow, where the concurrency group serialized the two. it is
+not fine now that the primary is a build happening elsewhere: a gate asking
+"has it published today?" one minute after the primary started would be
+asking about a build still in flight, and would answer no. so the window now
+opens an hour after the later of the two primary firings (10:17 utc in cst),
+by which point the cloudflare build has either finished or failed.
+
+the cost is that a genuine fallback briefing arrives mid-morning rather than
+at dawn. that is the correct trade: the fallback only runs on days the
+primary is broken, and on those days a late briefing beats two briefings.
 
 whichever one github actually delivers first wins. the `gate` job turns
 every other attempt into a no-op, so this still produces exactly one
 briefing per day. the gate skips a scheduled dispatch when either:
 
-- the github-pages deployment record shows the briefing already published
-  today, in local time, or
+- cloudflare's deployment record for the `reveille` worker shows the
+  briefing already published today, in local time, or
 - local time is outside 03:00-20:00, meaning the dispatch is so late that
   the briefing would be read as the wrong day. the next morning's attempts
   are the better recovery path.
@@ -208,14 +226,19 @@ the date off it. that was wrong twice over, and it shipped:
   concurrency group does not help with this; an earlier version of this
   document claimed it did, which was wrong.
 
-the `github-pages` deployment record has neither problem. it is not cached,
-it does not depend on the public page being reachable from the runner, and
-it does not depend on the page's html shape. the gate takes the newest
-deployment whose status actually reached `success`, converts its
-`created_at` to local time, and compares the date.
+a deployment record has neither problem. it is not cached, it does not
+depend on the public page being reachable from the runner, and it does not
+depend on the page's html shape. the gate takes the newest deployment,
+converts its `created_on` to local time, and compares the date.
 
-that costs the gate job a `deployments: read` grant, which is the only
-permission it holds.
+the record it reads is now cloudflare's, for the `reveille` worker, because
+that is where the page is deployed from either path. that is the property
+that makes this work: the primary writes the record the fallback reads,
+without either path knowing the other exists.
+
+the gate therefore holds no github permissions at all. it needs
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` instead, the same two
+secrets the deploy step uses.
 
 ## if it happens again
 

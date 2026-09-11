@@ -1,0 +1,16 @@
+# reveille.pid1.space -- the briefing itself.
+#
+# This was a project page at pid1.space/reveille/, which only worked because
+# it inherited the user site's custom domain. On Cloudflare it is its own
+# Worker on its own hostname; the old path still resolves through a redirect
+# rule on the apex.
+#
+# Deployed by Cloudflare Workers Builds, started by the cron Worker in
+# infra/cloudflare/ at 04:17 central. .github/workflows/build.yml is the
+# fallback for the mornings that does not happen. See docs/scheduling.md.
+
+name = "reveille"
+compatibility_date = "2026-09-11"
+
+[assets]
+directory = "./dist"

@@ -1,18 +1,22 @@
-// Starts reveille's daily build by calling GitHub's workflow_dispatch API.
+// Starts reveille's daily build by calling a Workers Builds deploy hook.
 //
-// GitHub's own `schedule` event is best-effort and has deferred this
-// repository's cron dispatches by four to eight hours at a stretch (see
-// docs/scheduling.md). workflow_dispatch is dispatched immediately, so the
-// only thing left to get right is the clock -- which is why this runs on
-// Cloudflare's edge rather than on a machine at the house. A power cut, a
-// dead SD card, or an ISP outage should not cost a morning briefing.
+// This used to call GitHub's workflow_dispatch API, because GitHub's own
+// `schedule` event had deferred this repository's cron dispatches by four to
+// eight hours at a stretch (see docs/scheduling.md). The clock problem is the
+// same; what changed is that the build no longer runs on GitHub at all. The
+// deploy hook starts a Cloudflare build that checks out the repository,
+// renders the page and deploys it, so the primary path touches GitHub only as
+// a git server.
 //
-// This is one of two independent triggers. If Cloudflare misses a run
+// That also retired a credential: the deploy hook URL is the secret, scoped
+// to one branch of one Worker, and it does not expire the way the
+// fine-grained PAT it replaces did.
+//
+// This is still one of two independent triggers. If Cloudflare misses a run
 // entirely, the fallback crons in .github/workflows/build.yml still fire and
 // the gate job there decides whether a briefing is still owed. Neither path
 // knows about the other; both are safe to fire on the same morning.
 
-const API = "https://api.github.com";
 const USER_AGENT = "reveille-trigger";
 const MAX_ATTEMPTS = 4;
 
@@ -31,16 +35,9 @@ function localHour(date, timeZone) {
 }
 
 async function dispatch(env) {
-  const url = `${API}/repos/${env.REPO}/actions/workflows/${env.WORKFLOW}/dispatches`;
-  return fetch(url, {
+  return fetch(env.DEPLOY_HOOK_URL, {
     method: "POST",
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": USER_AGENT,
-    },
-    body: JSON.stringify({ ref: env.REF }),
+    headers: { "User-Agent": USER_AGENT },
   });
 }
 
@@ -67,6 +64,12 @@ async function alert(env, reason) {
 }
 
 async function run(env) {
+  if (!env.DEPLOY_HOOK_URL) {
+    console.error("DEPLOY_HOOK_URL is not set");
+    await alert(env, "DEPLOY_HOOK_URL is not set");
+    return;
+  }
+
   const hour = localHour(new Date(), env.TARGET_TZ);
   const target = Number(env.TARGET_HOUR);
 
@@ -86,15 +89,15 @@ async function run(env) {
     attempts = attempt;
     try {
       const res = await dispatch(env);
-      if (res.status === 204) {
-        console.log(`dispatched ${env.WORKFLOW} on ${env.REPO}@${env.REF}`);
+      if (res.ok) {
+        console.log("build requested via deploy hook");
         return;
       }
       lastError = `HTTP ${res.status} ${(await res.text()).slice(0, 200)}`;
-      // A rejected or missing credential will be rejected again in two
-      // seconds. Everything else, 403 rate limiting included, is worth a
-      // retry inside the window we have.
-      if (res.status === 401 || res.status === 404) break;
+      // A deleted or mistyped hook will be rejected again in two seconds.
+      // Everything else, rate limiting included, is worth a retry inside the
+      // window we have.
+      if (res.status === 401 || res.status === 403 || res.status === 404) break;
     } catch (err) {
       lastError = `${err.name}: ${err.message}`;
     }

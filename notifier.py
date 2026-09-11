@@ -34,25 +34,23 @@ PUSHOVER_URL = "https://api.pushover.net/1/messages.json"
 _MAX_MESSAGE_CHARS = 1024
 _MAX_TITLE_CHARS = 250
 
+# where the briefing is published. overridable with REVEILLE_PAGE_URL.
+PAGE_URL = "https://reveille.pid1.space/"
+
 
 def _page_url() -> str | None:
     """resolve the live page url. preference order:
     1. REVEILLE_PAGE_URL env var (explicit override).
-    2. derived from GITHUB_REPOSITORY in github actions (owner/repo ->
-       https://owner.github.io/repo/, which matches the README's stated
-       hosting location).
-    3. None -- the notifier still works, the supplementary url just gets
-       omitted from the push.
+    2. PAGE_URL, where the page actually lives.
+
+    this used to derive the url from GITHUB_REPOSITORY, on the assumption
+    that the page was a github pages project site. it is not any more, and
+    that derivation would also have produced nothing at all when the build
+    runs on cloudflare, where GITHUB_REPOSITORY is unset -- dropping the
+    tap target from the push without saying so.
     """
     explicit = os.environ.get("REVEILLE_PAGE_URL", "").strip()
-    if explicit:
-        return explicit
-    repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
-    if "/" in repo:
-        owner, name = repo.split("/", 1)
-        if owner and name:
-            return f"https://{owner}.github.io/{name}/"
-    return None
+    return explicit or PAGE_URL
 
 
 def _should_send(summary_envelope: dict | None) -> tuple[bool, str]:

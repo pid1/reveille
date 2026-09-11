@@ -19,6 +19,17 @@ from fetchers.base import safe, unavailable
 
 DIST = Path(__file__).parent / "dist"
 
+# Cache policy ships with the assets rather than being configured out of band.
+# The page is regenerated once a day and read first thing in the morning, so a
+# stale copy is worse than a revalidation round trip on a 15KB file. GitHub
+# Pages could not express this at all.
+HEADERS = """\
+/*
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+"""
+
 
 def _gather() -> dict:
     print("[build] fetching nws_alerts ...", flush=True)
@@ -84,6 +95,8 @@ def main() -> int:
     out_path.write_text(html, encoding="utf-8")
     size = out_path.stat().st_size
     print(f"[build] wrote {out_path} ({size} bytes)", flush=True)
+
+    (DIST / "_headers").write_text(HEADERS, encoding="utf-8")
     if size > 50_000:
         print(f"[build] WARN: page is {size} bytes, above the 20KB target", flush=True)
 
