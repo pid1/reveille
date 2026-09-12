@@ -46,13 +46,11 @@ open dist/index.html
 create a `.env` file (gitignored, never commit it) with the location values:
 
 ```text
-HV_LAT=...
-HV_LON=...
-HV_ZIP=...
-HV_CITY=...
-HV_STATE=...
-HV_COUNTY=...
-HV_TIMEZONE=...
+HV_LAT=...                 # required, the point every weather lookup resolves from
+HV_LON=...                 # required
+HV_CITY=...                # required, only used in the page title
+HV_TIMEZONE=...            # required, iana name, e.g. America/Chicago
+HV_GHOSTMAPS_RADIUS_MILES= # optional, defaults to 25
 ANTHROPIC_API_KEY=...      # optional, for the ai summary
 GRIDSTATUS_API_KEY=...     # optional, for ercot data
 PUSHOVER_API_KEY=...       # optional, app token from pushover.net
@@ -66,6 +64,12 @@ on quiet days (when the BLUF is `NSTR.`) and any pushover failure is logged
 but does not affect the page build.
 
 ask the maintainer for the location values if you're working on a fork.
+
+the required list is deliberately short. `HV_ZIP`, `HV_STATE` and `HV_COUNTY`
+used to be required too, and nothing ever read them -- nws resolves the
+county, forecast zone and office from lat/lon, and every other source is
+pinned to a fixed url. they are gone; leaving them set on either deploy
+target is harmless but pointless.
 
 ## editing the ai summary
 
@@ -82,9 +86,9 @@ same build, but only as a fallback, so both need the same secrets.
    **workers & pages -> create -> connect to git**
 2. build command `uv sync --frozen && uv run python build.py`, deploy
    command `npx wrangler deploy`
-3. set the `HV_*`, `ANTHROPIC_API_KEY`, `GRIDSTATUS_API_KEY` and
-   `PUSHOVER_*` values as build **secrets** under **settings -> builds ->
-   build variables and secrets** (the same list as below)
+3. set `HV_LAT`, `HV_LON`, `HV_CITY`, `HV_TIMEZONE`, `ANTHROPIC_API_KEY`,
+   `GRIDSTATUS_API_KEY` and the `PUSHOVER_*` values as build **secrets**
+   under **settings -> builds -> build variables and secrets**
 4. optionally set `GITHUB_TOKEN` to any scopeless token -- it only raises
    the anonymous rate limit on the github api call the ghostmaps fetcher
    makes against a third-party repo
@@ -97,8 +101,8 @@ same build, but only as a fallback, so both need the same secrets.
 setup uses the [github cli](https://cli.github.com/) (`gh`). run from a
 clone of this repo:
 
-1. set all required `HV_*` secrets via `gh secret set` (location values are
-   private -- get them from a trusted source)
+1. set `HV_LAT`, `HV_LON`, `HV_CITY` and `HV_TIMEZONE` via `gh secret set`
+   (location values are private -- get them from a trusted source)
 2. set api key secrets via `gh secret set ANTHROPIC_API_KEY`, `gh secret
    set GRIDSTATUS_API_KEY`, and (optional) `gh secret set
    PUSHOVER_API_KEY` + `gh secret set PUSHOVER_USER_KEY` (all prompt
