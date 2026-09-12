@@ -23,11 +23,19 @@ on:
     - cron: "17,37,57 11-15 * * *"
   # The primary trigger is a Cloudflare Worker (infra/cloudflare/), which
   # POSTs a Workers Builds deploy hook at 04:17 central. That build renders
-  # the page and deploys it without involving Actions at all. This event
-  # remains for manual runs and for pushes.
+  # the page and deploys it without involving Actions at all.
   workflow_dispatch: # manual trigger via UI, `gh workflow run`, or the API
-  push:
-    branches: [main]
+
+  # There is deliberately no `push` trigger. Cloudflare Workers Builds
+  # already builds and deploys every push to main, so a push trigger here
+  # ran the whole thing a second time -- two builds, two deploys of the same
+  # commit, and two pushover notifications, since notifier.py runs inside
+  # build.py. The gate cannot prevent it either: push is an explicit trigger
+  # and the gate honours those by design.
+  #
+  # If Cloudflare is ever unable to build a pushed change, `gh workflow run`
+  # deploys it from here, and the scheduled fallback below still produces the
+  # next morning's briefing regardless.
 
 # Least privilege by default; each job grants only what it needs.
 permissions: {}
