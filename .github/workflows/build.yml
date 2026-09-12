@@ -161,10 +161,7 @@ jobs:
         env:
           HV_LAT: ${{ secrets.HV_LAT }}
           HV_LON: ${{ secrets.HV_LON }}
-          HV_ZIP: ${{ secrets.HV_ZIP }}
           HV_CITY: ${{ secrets.HV_CITY }}
-          HV_STATE: ${{ secrets.HV_STATE }}
-          HV_COUNTY: ${{ secrets.HV_COUNTY }}
           HV_TIMEZONE: ${{ secrets.HV_TIMEZONE }}
           HV_GHOSTMAPS_RADIUS_MILES: ${{ secrets.HV_GHOSTMAPS_RADIUS_MILES }}
           GRIDSTATUS_API_KEY: ${{ secrets.GRIDSTATUS_API_KEY }}
