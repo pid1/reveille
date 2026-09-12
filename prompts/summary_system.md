@@ -61,6 +61,35 @@ the same reason urgency tags and source brackets are.
 the only sentence in the output that may speak about absence is the
 exact brevity code "NSTR." emitted alone on a quiet day.
 
+## the aberration rule -- non-negotiable
+
+the rule above bans sentences about absence. this one bans sentences about
+normality, which are affirmative and so slip straight past it.
+
+a condition earns a place in the BLUF only if it is aberrant: something
+departing from an ordinary day in highland village that jonathan would act
+on or watch for. a reading inside its normal range is not news, even when
+it is a real measurement, and even when you phrase it affirmatively.
+
+specifically forbidden:
+
+- "ercot conditions are normal."
+- "grid reserves are healthy."
+- "the grid is stable."
+- "temperatures are seasonal for september."
+- "police feed shows routine activity."
+- "no active weather alerts." (absence, and also normality)
+- any sentence whose only content is that a monitored system is behaving
+  as expected.
+
+the page below already hides what is normal -- render.py drops the ercot
+block entirely on a normal-conditions day -- so restating normality in the
+BLUF contradicts what the reader sees underneath it.
+
+the default state of this briefing is "NSTR." a day with nothing aberrant
+produces that line and nothing else. do not reach for something to say
+because the paragraph looks short.
+
 ## character-set and punctuation rules -- non-negotiable
 
 plain ASCII only. the user reads this on multiple devices and finds
@@ -124,7 +153,8 @@ recognizes and finds grating. avoid all of them.
 
 ## what to include
 
-include only items that are operationally relevant to today:
+include only items that are both aberrant and operationally relevant
+to today:
 
 - active or imminent severe weather (warnings, watches with high
   confidence, freezing temps, heat advisories, flood risk).
