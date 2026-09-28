@@ -1,0 +1,122 @@
+name: trigger worker fallback deploy
+
+# Deploys infra/cloudflare/ -- the reveille-trigger cron Worker -- when a push
+# to main changes it and Cloudflare did not.
+#
+# The primary path is a Workers Builds trigger on the reveille-trigger Worker,
+# with its root directory at infra/cloudflare/ and watch paths limited to it,
+# deploying with `npx wrangler deploy --tag "$WORKERS_CI_COMMIT_SHA"`. This
+# workflow is for the pushes that path misses entirely: a Cloudflare incident,
+# a revoked GitHub App, a dropped webhook.
+#
+# It is deduplicated, not merely delayed. It waits for Cloudflare to have its
+# turn, then reads the commit tag on the Worker version that is actually
+# serving and deploys only if that does not already contain the newest change
+# to infra/cloudflare/. A cron Worker has no page to ask, so the tag on the
+# version is what stands in for rx's /.build-id.
+#
+# This has nothing to do with the daily briefing. build.yml's fallback crons
+# cover the reveille Worker; this covers the Worker that starts it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/cloudflare/**"
+      - ".github/workflows/trigger-fallback.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: trigger-fallback
+  cancel-in-progress: false
+
+env:
+  WORKER_NAME: reveille-trigger
+  WORKER_DIR: infra/cloudflare
+
+jobs:
+  fallback:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Give Cloudflare first crack
+        # Workers Builds deploys this Worker in well under a minute. Waiting
+        # is what makes this a fallback instead of a second deploy racing
+        # the first.
+        if: github.event_name == 'push'
+        run: sleep 600
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This job only reads the tree; no need to persist the token.
+          persist-credentials: false
+          # Full history, so the deployed tag can be compared by ancestry
+          # rather than by equality.
+          fetch-depth: 0
+
+      - name: Ask Cloudflare which commit is deployed
+        id: check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          decide() {
+            echo "deploy=$1" >> "$GITHUB_OUTPUT"
+            echo "$2" | tee -a "$GITHUB_STEP_SUMMARY"
+          }
+
+          api() {
+            curl -sS --fail-with-body --max-time 20 --retry 2 --retry-delay 5 \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/$1"
+          }
+
+          # The newest commit that changed the Worker. A push that only
+          # touches this workflow, or a Workers Builds deploy tagged with a
+          # later HEAD, both still count as current.
+          want=$(git log -1 --format=%H -- "$WORKER_DIR")
+
+          # `wrangler secret put` writes a new deployment whose version
+          # carries no tag, so the code that is serving is the one from the
+          # newest deployment that was not a secret change.
+          if ! body=$(api deployments); then
+            decide true "could not list deployments for ${WORKER_NAME}; deploying ${want:0:7}"
+            exit 0
+          fi
+          version=$(
+            echo "$body" | jq -r '
+              [ .result.deployments[]
+                | select(.annotations["workers/triggered_by"] != "secret") ]
+              | sort_by(.created_on) | last | .versions[0].version_id // ""'
+          )
+
+          live=""
+          if [ -n "$version" ] && body=$(api "versions/${version}"); then
+            live=$(echo "$body" | jq -r '.result.annotations["workers/tag"] // ""')
+          fi
+
+          if [ -z "$live" ]; then
+            # Untagged means deployed by hand or by a Workers Builds trigger
+            # whose deploy command lacks --tag. Either way nothing proves it
+            # is current, and redeploying the same code is harmless.
+            decide true "${WORKER_NAME} version ${version:-?} has no commit tag; deploying ${want:0:7}"
+          elif git merge-base --is-ancestor "$want" "$live" 2>/dev/null; then
+            decide false "${WORKER_NAME} is serving ${live:0:7}, which includes ${want:0:7}; nothing to do."
+          else
+            decide true "${WORKER_NAME} is serving ${live:0:7}, which predates ${want:0:7}; deploying."
+          fi
+
+      - name: Deploy to Cloudflare
+        if: steps.check.outputs.deploy == 'true'
+        working-directory: ${{ env.WORKER_DIR }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # Tagged like the Workers Builds path, so the next run can tell.
+        # Secrets set with `wrangler secret put` survive a deploy.
+        run: npx --yes wrangler@4 deploy --tag "$GITHUB_SHA" --message "trigger-fallback.yml run $GITHUB_RUN_ID"
