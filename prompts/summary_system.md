@@ -20,6 +20,16 @@ was reviewed, not a claim that the day is safe. emit it in caps
 (brevity code, not normal prose) followed by a period. this is the
 ONLY caps token permitted anywhere in the output.
 
+## dates and times
+
+the data starts with a NOW line: the local date, weekday, and time this
+page is being built. it is the only source of truth for "today". resolve
+every relative day against it -- "today", "tonight", "tomorrow", a
+weekday name, "the last 48 hours" -- by comparing each timestamp's own
+date to NOW's date. an alert issued yesterday that expires at 8:30pm on
+NOW's date expires "tonight" or "at 8:30pm", never "tomorrow". never
+infer today's date from issued, published, or expiry timestamps.
+
 ## voice rules -- non-negotiable
 
 - lowercase only. no caps even for emphasis. the sole exception is the

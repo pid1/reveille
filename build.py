@@ -57,7 +57,7 @@ def _gather() -> dict:
     return sections
 
 
-def _generate_summary(sections: dict) -> dict:
+def _generate_summary(sections: dict, now: datetime) -> dict:
     """try the ai summary, return an envelope. failure is fine."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return unavailable("ANTHROPIC_API_KEY not set")
@@ -65,7 +65,7 @@ def _generate_summary(sections: dict) -> dict:
         # import here so a missing prompt file doesn't kill the whole build
         from summarize import format_blob, generate_summary  # local import on purpose
 
-        blob = format_blob(sections)
+        blob = format_blob(sections, now)
         print("[build] generating ai summary ...", flush=True)
         text = generate_summary(blob)
         from fetchers.base import ok
@@ -82,7 +82,7 @@ def main() -> int:
 
     now = datetime.now(TIMEZONE)
     sections = _gather()
-    summary = _generate_summary(sections)
+    summary = _generate_summary(sections, now)
 
     commit_sha = os.environ.get("GITHUB_SHA") or os.environ.get("GIT_COMMIT") or None
     if commit_sha:

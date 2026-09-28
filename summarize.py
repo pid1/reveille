@@ -8,6 +8,7 @@ runtime fetcher state.
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 from fetchers.base import post_json
@@ -108,8 +109,12 @@ def _fmt_ghostmaps(env: dict) -> str:
     return "\n" + "\n".join(lines)
 
 
-def format_blob(sections: dict) -> str:
+def format_blob(sections: dict, now: datetime) -> str:
+    # without a "now" the model guesses today from whatever dates the data
+    # happens to carry -- on 2026-09-28 it took an alert "issued september
+    # 27" as today and called a same-day 8:30pm expiry "tomorrow".
     return (
+        f"NOW: {now.strftime('%A %Y-%m-%d %H:%M %Z')}\n"
         f"NWS_ALERTS: {_fmt_nws_alerts(sections['nws_alerts'])}\n"
         f"NWS_FORECAST: {_fmt_forecast(sections['nws_forecast'])}\n"
         f"ERCOT: {_fmt_ercot(sections['ercot'])}\n"
