@@ -1,4 +1,4 @@
-"""ai morning-summary generation. claude sonnet 5 via direct anthropic api call.
+"""ai morning-summary generation. claude sonnet 5.5 via direct anthropic api call.
 
 prompt lives in prompts/summary_system.md and is read at import time. the
 formatted data blob lives here, not in the prompt, because it depends on
@@ -19,7 +19,7 @@ if not SYSTEM_PROMPT:
 
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-MODEL = "claude-sonnet-5"
+MODEL = "claude-sonnet-5-5"
 
 
 # -- data blob formatting --------------------------------------------------
@@ -133,6 +133,10 @@ def generate_summary(data_blob_text: str) -> str:
             # the prompt targets <=80 words (~120 tokens). 200 gives headroom
             # for rare 2-paragraph days without permitting a wall of text.
             "max_tokens": 200,
+            # thinking shares the max_tokens cap. from medium effort up,
+            # sonnet 5.5 thinks before almost every reply, which can eat
+            # the 200 tokens before any text. low skips it on simple asks.
+            "output_config": {"effort": "low"},
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": data_blob_text}],
         },
@@ -148,7 +152,7 @@ def _extract_text(resp: dict) -> str:
     """pull the assistant text out of a messages-api response.
 
     the response `content` is a list of typed blocks. we cannot assume the
-    first block is text: claude-sonnet-5 runs adaptive thinking by default, so
+    first block is text: claude-sonnet-5-5 runs adaptive thinking by default, so
     content[0] is often a `thinking` block (no "text" key). find the first
     text block instead of indexing blindly -- that's what produced the
     `KeyError: 'text'` in the BLUF.
