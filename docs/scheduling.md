@@ -116,6 +116,15 @@ npx wrangler secret put PUSHOVER_API_KEY
 npx wrangler secret put PUSHOVER_USER_KEY
 ```
 
+that manual deploy is only needed once, for the secrets. after that, changes
+to `infra/cloudflare/` on main deploy themselves: a workers builds trigger on
+the `reveille-trigger` worker (root directory `/infra/cloudflare`, watch
+paths limited to it, deploy command
+`npx wrangler deploy --tag "$WORKERS_CI_COMMIT_SHA"`) is the primary path,
+and `.github/workflows/trigger-fallback.yml` deploys ten minutes later only
+if the serving version's commit tag does not already include the change.
+secrets survive both.
+
 the deploy hook is created on the `reveille` worker, under **settings >
 builds > deploy hooks**. the url it gives back is the credential: anyone
 holding it can start a build of one branch of one worker, and nothing else.
