@@ -20,6 +20,7 @@ if not SYSTEM_PROMPT:
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 MODEL = "claude-sonnet-5-5"
+MODEL_MAX_OUTPUT = 128_000  # sonnet 5.5 output ceiling (docs, 2026-09); above it is a 400
 
 
 # -- data blob formatting --------------------------------------------------
@@ -130,12 +131,14 @@ def generate_summary(data_blob_text: str) -> str:
         ANTHROPIC_API,
         payload={
             "model": MODEL,
-            # the prompt targets <=80 words (~120 tokens). 200 gives headroom
-            # for rare 2-paragraph days without permitting a wall of text.
-            "max_tokens": 200,
-            # thinking shares the max_tokens cap. from medium effort up,
-            # sonnet 5.5 thinks before almost every reply, which can eat
-            # the 200 tokens before any text. low skips it on simple asks.
+            # the model's own output ceiling. length is the prompt's job
+            # (<=80 words); a tight cap here only ever truncated the summary
+            # or starved it behind thinking, which shares this budget.
+            # billing is on tokens produced, not on the cap.
+            "max_tokens": MODEL_MAX_OUTPUT,
+            # from medium effort up, sonnet 5.5 thinks before almost every
+            # reply. a short summary doesn't need it; low skips it on simple
+            # asks and keeps the build fast.
             "output_config": {"effort": "low"},
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": data_blob_text}],
