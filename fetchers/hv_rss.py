@@ -11,7 +11,7 @@ from time import struct_time
 import feedparser
 from config import TIMEZONE
 
-from fetchers.base import strip_html, truncate
+from fetchers.base import get_bytes, strip_html, truncate
 
 FEEDS = {
     "emergency": "https://www.highlandvillage.org/RSSFeed.aspx?ModID=63&CID=Emergency-Alerts-1",
@@ -34,7 +34,11 @@ def _to_central(parsed: struct_time | None) -> datetime | None:
 
 
 def _entries_from(url: str) -> list[dict]:
-    fp = feedparser.parse(url)
+    # fetch through get_bytes, not feedparser.parse(url): feedparser's own
+    # download has no timeout, and a feed that held the connection open hung
+    # a cloudflare build on this step. a failure now raises and marks the
+    # section unavailable instead of silently reading as "no entries".
+    fp = feedparser.parse(get_bytes(url))
     # cutoff at midnight `MAX_AGE_DAYS` ago, not now - 14d (which half-clips
     # by current-time-of-day)
     today_midnight = datetime.now(TIMEZONE).replace(
