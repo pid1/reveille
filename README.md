@@ -4,7 +4,7 @@ a plaintext daily morning briefing for highland village, tx. one static html pag
 
 ## what's on it
 
-- nws active alerts and 3-day forecast for highland village
+- nws active alerts (ozone action days filtered out) and 3-day forecast for highland village
 - ercot grid status
 - highland village emergency, police, and fire rss feeds (most recent 14 days)
 - geolocated incidents from s2 underground's ghostmaps common intelligence picture, filtered to within 25 miles and the last 24 hours
