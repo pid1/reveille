@@ -35,9 +35,11 @@ def _fmt_nws_alerts(env: dict) -> str:
         return "none active"
     parts = []
     for a in alerts:
+        # the description carries the substance (which pollutant, which
+        # hazard); without it the model guesses from the headline and forecast.
         parts.append(
             f"- {a['event']} / {a['severity']} / {a['urgency']}: {a['headline']} "
-            f"(expires {a.get('expires', '')})"
+            f"(expires {a.get('expires', '')})\n  {a.get('description', '')}"
         )
     return "\n" + "\n".join(parts)
 
