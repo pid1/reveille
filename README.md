@@ -25,7 +25,7 @@ the cost: it looks like the drudge report. no animations, no fancy typography, n
 
 ## stack
 
-- python 3.14
+- python 3.15
 - [uv](https://docs.astral.sh/uv/) for package management
 - one third-party dependency: `feedparser`. all other http and parsing is stdlib (`urllib.request`, `xml.etree.ElementTree`, `html.parser`, `zipfile`).
 - cloudflare workers builds for the daily build (triggered by a cloudflare cron -- see [scheduling](#scheduling))
