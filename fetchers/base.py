@@ -70,12 +70,16 @@ def _request(
     timeout: float = DEFAULT_TIMEOUT,
 ) -> bytes:
     """raw http request; returns response body bytes. raises on http >=400 or network failure."""
+    # some urls come from api responses (nws forecast, ghostmaps download_url),
+    # so refuse file:// and every other scheme urllib would follow.
+    if not url.startswith("https://"):
+        raise RuntimeError(f"refusing non-https url: {url}")
     h = {"User-Agent": USER_AGENT}
     if headers:
         h.update(headers)
     req = urllib.request.Request(url, data=body, headers=h, method=method)
     try:
-        # The URL is a feed this deployment is configured to poll, not user input.
+        # The scheme check above limits the URL to https, so file:// cannot reach here.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read()

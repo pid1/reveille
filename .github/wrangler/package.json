@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "description": "The wrangler that the fallback deploy workflows run, locked so its dependencies are pinned too.",
+  "devDependencies": {
+    "wrangler": "4.151.1"
+  },
+  "overrides": {
+    "undici": "7.30.1"
+  }
+}
