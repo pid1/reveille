@@ -111,6 +111,10 @@ jobs:
             decide true "${WORKER_NAME} is serving ${live:0:7}, which predates ${want:0:7}; deploying."
           fi
 
+      - name: Install wrangler
+        if: steps.check.outputs.deploy == 'true'
+        run: npm ci --prefix .github/wrangler --no-audit --no-fund
+
       - name: Deploy to Cloudflare
         if: steps.check.outputs.deploy == 'true'
         working-directory: ${{ env.WORKER_DIR }}
@@ -119,4 +123,4 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         # Tagged like the Workers Builds path, so the next run can tell.
         # Secrets set with `wrangler secret put` survive a deploy.
-        run: npx --yes wrangler@4 deploy --tag "$GITHUB_SHA" --message "trigger-fallback.yml run $GITHUB_RUN_ID"
+        run: npm exec --prefix ../../.github/wrangler --no-install -- wrangler deploy --tag "$GITHUB_SHA" --message "trigger-fallback.yml run $GITHUB_RUN_ID"
