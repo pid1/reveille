@@ -20,6 +20,7 @@ import socket
 import tempfile
 import unittest
 import urllib.error
+import urllib.parse
 import zipfile
 from datetime import datetime
 from email.utils import format_datetime
@@ -257,6 +258,9 @@ class Build:
         if sent:
             self.prompt = json.loads(sent)["messages"][0]["content"]
         self.pushed = net.body_sent_to(notifier.PUSHOVER_URL)
+        self.push_message = None
+        if self.pushed:
+            self.push_message = urllib.parse.parse_qs(self.pushed)["message"][0]
 
 
 class DegradationTest(unittest.TestCase):
@@ -282,7 +286,7 @@ class DegradationTest(unittest.TestCase):
         self.assertIn(BLUF, b.html)
         for key in SECTIONS:
             self.assertSectionOk(b, key)
-        self.assertIn("message=storms+tonight", b.pushed)
+        self.assertEqual(b.push_message, BLUF)
 
     def test_each_source_each_failure(self):
         for source, (prefixes, failed) in SOURCES.items():
@@ -312,8 +316,8 @@ class DegradationTest(unittest.TestCase):
                 self.assertIn("[ai summary unavailable -- see raw data below]", b.html)
                 for key in SECTIONS:
                     self.assertSectionOk(b, key)
-                # no BLUF, so no push (by design: see notifier._should_send)
-                self.assertIsNone(b.pushed)
+                # no BLUF, so the short fallback push instead
+                self.assertEqual(b.push_message, notifier.FALLBACK_MESSAGE)
 
     def test_anthropic_reply_without_text(self):
         api = summarize.ANTHROPIC_API
@@ -322,6 +326,19 @@ class DegradationTest(unittest.TestCase):
         self.assertBuilt(b)
         self.assertIn("[ai summary unavailable", b.html)
         self.assertIn("no text block", b.html)
+
+    def test_no_anthropic_key_still_pushes_fallback(self):
+        env = {k: v for k, v in KEYS.items() if k != "ANTHROPIC_API_KEY"}
+        b = Build(FakeNet(), env=env)
+        self.assertBuilt(b)
+        self.assertEqual(b.push_message, "briefing up, summary unavailable.")
+
+    def test_nstr_day_sends_nothing(self):
+        api = summarize.ANTHROPIC_API
+        reply = json.dumps({"content": [{"type": "text", "text": "NSTR."}]})
+        b = Build(FakeNet(overrides={api: reply.encode()}))
+        self.assertBuilt(b)
+        self.assertIsNone(b.pushed)
 
     def test_pushover_failures(self):
         for mode, make in FAILURES.items():

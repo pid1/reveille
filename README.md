@@ -60,9 +60,10 @@ REVEILLE_PAGE_URL=...      # optional, overrides the published page url
 ```
 
 if both pushover values are set, the build sends a push notification with
-the BLUF text to your devices after writing the page. the push is skipped
-on quiet days (when the BLUF is `NSTR.`) and any pushover failure is logged
-but does not affect the page build.
+the BLUF text to your devices after writing the page. if the ai summary
+failed, it sends `briefing up, summary unavailable.` instead. the push is
+skipped on quiet days (when the BLUF is `NSTR.`) and any pushover failure
+is logged but does not affect the page build.
 
 ask the maintainer for the location values if you're working on a fork.
 

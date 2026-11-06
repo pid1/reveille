@@ -105,8 +105,8 @@ def main() -> int:
 
     # opportunistic pushover notification. runs after the page is written
     # so any pushover failure cannot affect publishing. the notifier itself
-    # never raises -- it logs and returns. only fires when the BLUF is
-    # present and not the NSTR sentinel.
+    # never raises -- it logs and returns. sends the BLUF, a short fallback
+    # when the summary failed, and nothing on an NSTR day.
     try:
         from notifier import send_pushover  # local import; module is optional
 
