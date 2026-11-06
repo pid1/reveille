@@ -265,6 +265,39 @@ def _render_rss_section(title: str, env: dict, key: str) -> str:
     return "\n".join(out)
 
 
+# -- hf bands ---------------------------------------------------------------
+
+
+def _render_hf_bands(env: dict) -> str:
+    """indices on two lines, then a band x day/night grid. always shown:
+    unlike the hazard sections there is no 'normal' state to hide on, and
+    the reader looks for it every morning.
+    """
+    from fetchers.hf_bands import BANDS, CREDIT_URL
+
+    out = [_rule("HF BANDS")]
+    if env["status"] != "ok":
+        out.append(_unavail_line(env))
+        return "\n".join(out)
+    d = env["data"] or {}
+
+    def pairs(*keys: str) -> str:
+        return "  ".join(f"{k} {d[k]}" for k in keys if d.get(k))
+
+    for line in (pairs("sfi", "ssn", "a", "k", "xray"), pairs("geomag", "noise")):
+        if line:
+            out.append(f"  {line}")
+    cond = d.get("conditions") or {}
+    out.append("        " + " ".join(f"{b.replace('m', ''):<5}" for b in BANDS).rstrip())
+    for time in ("day", "night"):
+        row = cond.get(time) or {}
+        cells = " ".join(f"{row.get(b) or '-':<5}" for b in BANDS)
+        out.append(f"  {time:<5} {cells}".rstrip())
+    # n0nbh asks for credit; _linkify turns the url into a hamqsl.com link.
+    out.append(f"  N0NBH {CREDIT_URL}")
+    return "\n".join(out)
+
+
 # -- linkification ----------------------------------------------------------
 
 
@@ -356,6 +389,7 @@ def render_page(
         _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
         _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
         _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
+        _render_hf_bands(sections["hf_bands"]),
     ]
     text = "\n".join(s for s in rendered if s)
 

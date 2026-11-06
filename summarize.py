@@ -111,6 +111,16 @@ def _fmt_ghostmaps(env: dict) -> str:
     return "\n" + "\n".join(lines)
 
 
+def _fmt_hf_bands(env: dict) -> str:
+    # indices only, one line. the per-band grid is for the reader; the model
+    # only needs enough to spot a geomagnetic storm or a big flare.
+    if env["status"] != "ok":
+        return f"unavailable ({env['error']})"
+    d = env["data"] or {}
+    keys = ("sfi", "ssn", "a", "k", "xray", "geomag")
+    return ", ".join(f"{k} {d[k]}" for k in keys if d.get(k)) or "no data"
+
+
 def format_blob(sections: dict, now: datetime) -> str:
     # without a "now" the model guesses today from whatever dates the data
     # happens to carry -- on 2026-09-28 it took an alert "issued september
@@ -124,6 +134,7 @@ def format_blob(sections: dict, now: datetime) -> str:
         f"HV_POLICE: {_fmt_rss(sections['hv_rss'], 'police')}\n"
         f"HV_FIRE: {_fmt_rss(sections['hv_rss'], 'fire')}\n"
         f"GHOSTMAPS_NEARBY: {_fmt_ghostmaps(sections['ghostmaps'])}\n"
+        f"HF_PROPAGATION: {_fmt_hf_bands(sections['hf_bands'])}\n"
     )
 
 

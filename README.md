@@ -8,6 +8,7 @@ a plaintext daily morning briefing for highland village, tx. one static html pag
 - ercot grid status
 - highland village emergency, police, and fire rss feeds (most recent 14 days)
 - geolocated incidents from s2 underground's ghostmaps common intelligence picture, filtered to within 25 miles and the last 24 hours
+- hf band conditions: solar flux, sunspots, a/k index, x-ray and n0nbh's calculated day/night conditions per band group, from [hamqsl.com](https://www.hamqsl.com/solar.html) (credited and linked on the page, as n0nbh asks; fetched once per build, well inside the hourly limit)
 - short ai-generated summary at the top (claude sonnet 5.5), with graceful fallback to raw data if the summary call fails
 
 ## why minimal data transfer matters

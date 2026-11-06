@@ -14,7 +14,7 @@ from pathlib import Path
 # import config first so missing env vars fail loudly before any fetching
 from config import TIMEZONE
 
-from fetchers import ercot, ghostmaps, hv_rss, nws_alerts, nws_forecast
+from fetchers import ercot, ghostmaps, hf_bands, hv_rss, nws_alerts, nws_forecast
 from fetchers.base import safe, unavailable
 
 DIST = Path(__file__).parent / "dist"
@@ -47,6 +47,9 @@ def _gather() -> dict:
 
     print("[build] fetching ghostmaps ...", flush=True)
     sections["ghostmaps"] = safe(ghostmaps.fetch)
+
+    print("[build] fetching hf_bands ...", flush=True)
+    sections["hf_bands"] = safe(hf_bands.fetch)
 
     for k, v in sections.items():
         print(
