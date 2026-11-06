@@ -23,8 +23,13 @@ def _is_ozone_only(p: dict) -> bool:
 def fetch() -> list[dict]:
     url = f"https://api.weather.gov/alerts/active?point={LAT},{LON}"
     data = get_json(url, headers={"accept": "application/geo+json"})
+    # anything without a features list would otherwise read as "no alerts",
+    # which hides the section. alerts are the one section that must not
+    # vanish on a bad response.
+    if not isinstance(data, dict) or not isinstance(data.get("features"), list):
+        raise RuntimeError("response has no features list")
     alerts = []
-    for feat in data.get("features", []) or []:
+    for feat in data["features"]:
         p = feat.get("properties", {}) or {}
         if _is_ozone_only(p):
             continue

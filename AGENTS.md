@@ -3,7 +3,9 @@
 ## Sadr
 
 ### Build and test
-- The repo has no test suite. The check is that the page builds: `uv sync --locked`, then `HV_LAT=32.78 HV_LON=-96.80 HV_CITY=Test HV_TIMEZONE=America/Chicago uv run python build.py` with `ANTHROPIC_API_KEY`, `PUSHOVER_API_KEY` and `PUSHOVER_USER_KEY` unset. It passes when it exits 0 and prints `[build] wrote .../dist/index.html`.
+- `uv run python -m unittest` runs the stdlib test suite in `tests/`. It uses no network: `tests/test_degradation.py` runs `build.main()` against a fake `urlopen`, breaks each source in turn (timeout, DNS, 5xx, malformed body, missing key) and checks the rest of the page survives. Add a case there for any new source.
+- The other check is that the page builds: `uv sync --locked`, then `HV_LAT=32.78 HV_LON=-96.80 HV_CITY=Test HV_TIMEZONE=America/Chicago uv run python build.py` with `ANTHROPIC_API_KEY`, `PUSHOVER_API_KEY` and `PUSHOVER_USER_KEY` unset. It passes when it exits 0 and prints `[build] wrote .../dist/index.html`.
+- Every build, local ones included, reads `https://reveille.pid1.space/last-good.json` (read-only) for the previous build's data and writes a new one to `dist/`. Set `REVEILLE_LAST_GOOD_URL` to point it elsewhere. `lastgood.py` holds the per-section cutoffs.
 - Without those keys, `build.py` only reads public APIs, skips the AI summary and sends no push notification. With both `PUSHOVER_*` keys set, it sends a push, so never set them in a check.
 - `node --check infra/cloudflare/worker.js` checks that the trigger Worker parses.
 - `npm ci --prefix .github/wrangler`, then `npm exec --prefix .github/wrangler --no-install -- wrangler deploy --dry-run` at the repo root after the build and in `infra/cloudflare/`, checks both fallback deploy configs without deploying.

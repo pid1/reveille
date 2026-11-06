@@ -176,6 +176,9 @@ to today:
   do not get mentioned. note that this section is now scoped to the
   last 24 hours, so everything you see here is by definition recent.
 - hv emergency rss entries from the last 48 hours.
+- a geomagnetic storm (k index 5 or higher) or an x-class x-ray flare in
+  HF_PROPAGATION. jonathan is a ham, and either one degrades hf radio
+  and can degrade gps. ordinary readings are not news.
 - hv police or fire rss only if the entry describes an active incident
   or a hazard the reader needs to know about today. exclude fundraisers,
   awards, social-media announcements, equipment purchases, retirements,

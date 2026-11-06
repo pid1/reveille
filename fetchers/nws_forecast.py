@@ -27,6 +27,8 @@ def fetch() -> list[dict]:
                 "windDirection": p.get("windDirection") or "",
                 "shortForecast": p.get("shortForecast") or "",
                 "precipPct": pop,
+                # lets a carried-over copy drop the periods already past
+                "endTime": p.get("endTime") or "",
             }
         )
     return out

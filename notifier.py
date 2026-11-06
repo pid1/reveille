@@ -5,11 +5,12 @@ design constraints:
 - runs after the static page is written. any failure here logs and returns;
   it never raises and never affects the page build's exit status. pushover
   being down or misconfigured must not prevent the page from being published.
-- only fires when the BLUF has real content. specifically, skipped when the
-  ai summary path failed, when the summary text is empty, or when it is
-  exactly the 'NSTR.' sentinel (case- and whitespace-insensitive). on quiet
-  days you get no notification. github actions surfaces build failures via
-  its own channels, so silence here is not ambiguous.
+- sends the BLUF when it has real content, and is skipped when it is exactly
+  the 'NSTR.' sentinel (case- and whitespace-insensitive): on quiet days you
+  get no notification.
+- when the ai summary failed or came back empty, it sends FALLBACK_MESSAGE
+  instead. silence on those mornings would read as a quiet day, which it
+  is not -- nobody read the data (win's call, 2026-11-06).
 - message body is the raw BLUF paragraph, no decorations, no HTML, no wrap.
   pushover's monospace mode renders it in a fixed-width font on the client,
   and the client manages its own wrap to the device viewport.
@@ -37,6 +38,9 @@ _MAX_TITLE_CHARS = 250
 # where the briefing is published. overridable with REVEILLE_PAGE_URL.
 PAGE_URL = "https://reveille.pid1.space/"
 
+# sent in place of the BLUF when the summary step failed.
+FALLBACK_MESSAGE = "briefing up, summary unavailable."
+
 
 def _page_url() -> str | None:
     """resolve the live page url. preference order:
@@ -53,28 +57,26 @@ def _page_url() -> str | None:
     return explicit or PAGE_URL
 
 
-def _should_send(summary_envelope: dict | None) -> tuple[bool, str]:
-    """return (should_send, reason). reason is for logging when we skip."""
-    if not summary_envelope:
-        return False, "no summary envelope"
-    if summary_envelope.get("status") != "ok":
-        return False, f"summary status={summary_envelope.get('status')}"
-    text = (summary_envelope.get("data") or "").strip()
+def _message(summary_envelope: dict | None) -> tuple[str | None, str]:
+    """return (message, reason). message None means skip; reason is for the log."""
+    text = ""
+    if summary_envelope and summary_envelope.get("status") == "ok":
+        text = (summary_envelope.get("data") or "").strip()
     if not text:
-        return False, "summary text is empty"
+        return FALLBACK_MESSAGE, "summary unavailable, sending fallback"
     # NSTR sentinel match. claude may emit it with or without a trailing
     # period; either way is a 'nothing to report' day and we suppress.
     bare = text.rstrip(".").strip().upper()
     if bare == "NSTR":
-        return False, "summary is NSTR (quiet day)"
-    return True, ""
+        return None, "summary is NSTR (quiet day)"
+    return text, ""
 
 
 def send_pushover(summary_envelope: dict | None, now: datetime) -> None:
     """send a pushover push with the BLUF text. never raises.
 
     skipped silently if PUSHOVER_API_KEY or PUSHOVER_USER_KEY are not set,
-    or if the summary doesn't warrant a push (see _should_send).
+    or on a quiet (NSTR) day (see _message).
     """
     token = os.environ.get("PUSHOVER_API_KEY", "").strip()
     user_key = os.environ.get("PUSHOVER_USER_KEY", "").strip()
@@ -85,12 +87,13 @@ def send_pushover(summary_envelope: dict | None, now: datetime) -> None:
         )
         return
 
-    should, reason = _should_send(summary_envelope)
-    if not should:
+    text, reason = _message(summary_envelope)
+    if text is None:
         print(f"[pushover] skipped: {reason}", flush=True)
         return
+    if reason:
+        print(f"[pushover] {reason}", flush=True)
 
-    text = (summary_envelope["data"] or "").strip()
     # defensive truncation. the BLUF is prompt-capped at ~80 words (~500
     # chars), so this almost never fires, but if claude returns a wall of
     # text we still respect pushover's 1024-char cap rather than getting
