@@ -82,6 +82,9 @@ def _fmt_ercot(env: dict) -> str:
 def _fmt_rss(env: dict, key: str) -> str:
     if env["status"] != "ok":
         return f"unavailable ({env['error']})"
+    err = ((env["data"] or {}).get("errors") or {}).get(key)
+    if err:
+        return f"unavailable ({err})"
     items = (env["data"] or {}).get(key) or []
     if not items:
         return "none in last 14d"
@@ -121,20 +124,27 @@ def _fmt_hf_bands(env: dict) -> str:
     return ", ".join(f"{k} {d[k]}" for k in keys if d.get(k)) or "no data"
 
 
+def _safe_fmt(fn, *args) -> str:
+    try:
+        return fn(*args)
+    except Exception as e:
+        return f"unavailable (could not format: {type(e).__name__})"
+
+
 def format_blob(sections: dict, now: datetime) -> str:
     # without a "now" the model guesses today from whatever dates the data
     # happens to carry -- on 2026-09-28 it took an alert "issued september
     # 27" as today and called a same-day 8:30pm expiry "tomorrow".
     return (
         f"NOW: {now.strftime('%A %Y-%m-%d %H:%M %Z')}\n"
-        f"NWS_ALERTS: {_fmt_nws_alerts(sections['nws_alerts'])}\n"
-        f"NWS_FORECAST: {_fmt_forecast(sections['nws_forecast'])}\n"
-        f"ERCOT: {_fmt_ercot(sections['ercot'])}\n"
-        f"HV_EMERGENCY: {_fmt_rss(sections['hv_rss'], 'emergency')}\n"
-        f"HV_POLICE: {_fmt_rss(sections['hv_rss'], 'police')}\n"
-        f"HV_FIRE: {_fmt_rss(sections['hv_rss'], 'fire')}\n"
-        f"GHOSTMAPS_NEARBY: {_fmt_ghostmaps(sections['ghostmaps'])}\n"
-        f"HF_PROPAGATION: {_fmt_hf_bands(sections['hf_bands'])}\n"
+        f"NWS_ALERTS: {_safe_fmt(_fmt_nws_alerts, sections['nws_alerts'])}\n"
+        f"NWS_FORECAST: {_safe_fmt(_fmt_forecast, sections['nws_forecast'])}\n"
+        f"ERCOT: {_safe_fmt(_fmt_ercot, sections['ercot'])}\n"
+        f"HV_EMERGENCY: {_safe_fmt(_fmt_rss, sections['hv_rss'], 'emergency')}\n"
+        f"HV_POLICE: {_safe_fmt(_fmt_rss, sections['hv_rss'], 'police')}\n"
+        f"HV_FIRE: {_safe_fmt(_fmt_rss, sections['hv_rss'], 'fire')}\n"
+        f"GHOSTMAPS_NEARBY: {_safe_fmt(_fmt_ghostmaps, sections['ghostmaps'])}\n"
+        f"HF_PROPAGATION: {_safe_fmt(_fmt_hf_bands, sections['hf_bands'])}\n"
     )
 
 

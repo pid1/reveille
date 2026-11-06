@@ -19,6 +19,7 @@ from html import escape as h
 from typing import Any
 
 from config import CITY
+from fetchers.base import truncate as _truncate
 
 COL = 48  # target line width for plaintext wrap. tuned so output of _wrap()
 # fits a typical mobile viewport (~360-430px) at the browser-default
@@ -51,7 +52,9 @@ def _rule(title: str) -> str:
 
 
 def _unavail_line(env: dict) -> str:
-    return f"[unavailable: {env.get('error') or 'unknown'}]"
+    # errors can carry 500 chars of an upstream error page. the build log
+    # has the whole thing; the page only needs enough to say what broke.
+    return f"[unavailable: {_truncate(env.get('error') or 'unknown', 160)}]"
 
 
 def _wrap(text: str, indent: str = "  ", width: int = COL) -> str:
@@ -245,6 +248,9 @@ def _render_ghostmaps(env: dict) -> str:
 def _render_rss_section(title: str, env: dict, key: str) -> str:
     if env["status"] != "ok":
         return "\n".join([_rule(title), _unavail_line(env)])
+    err = ((env["data"] or {}).get("errors") or {}).get(key)
+    if err:
+        return "\n".join([_rule(title), _unavail_line({"error": err})])
     items = (env["data"] or {}).get(key) or []
     if not items:
         # hide the section entirely. an empty 14-day feed is the routine
@@ -288,7 +294,8 @@ def _render_hf_bands(env: dict) -> str:
         if line:
             out.append(f"  {line}")
     cond = d.get("conditions") or {}
-    out.append("        " + " ".join(f"{b.replace('m', ''):<5}" for b in BANDS).rstrip())
+    header = " ".join(f"{b.replace('m', ''):<5}" for b in BANDS)
+    out.append(f"        {header}".rstrip())
     for time in ("day", "night"):
         row = cond.get(time) or {}
         cells = " ".join(f"{row.get(b) or '-':<5}" for b in BANDS)
@@ -329,7 +336,8 @@ def _linkify(text: str) -> str:
         url = m.group(1)
         trailing = ""
         # peel back trailing punctuation that's usually sentence punctuation
-        while url and url[-1] in ".,);]":
+        # (':' too: error notices read "fetching <url>: <reason>")
+        while url and url[-1] in ".,);]:":
             trailing = url[-1] + trailing
             url = url[:-1]
         # derive a short display label from the hostname. fall back to the
@@ -353,6 +361,18 @@ def _linkify(text: str) -> str:
 
 
 # -- top-level --------------------------------------------------------------
+
+
+def _guard(title: str, fn, *args) -> str:
+    """render one section; if a bad value got past its fetcher and the
+    renderer chokes on it, that section says so and the page still builds.
+    """
+    try:
+        return fn(*args)
+    except Exception as e:
+        print(f"[render] {title} failed: {type(e).__name__}: {e}", flush=True)
+        notice = _unavail_line({"error": f"render failed: {type(e).__name__}"})
+        return "\n".join([_rule(title), notice])
 
 
 def _header_block(now: datetime) -> str:
@@ -379,18 +399,28 @@ def render_page(
     # ok-and-empty and the policy is to hide it. errors always produce a
     # rendered section so silent failures are not possible. filter empties
     # before joining so we don't end up with double blank lines.
+    rss = sections["hv_rss"]
     rendered = [
         _header_block(now),
-        _render_summary(summary),
-        _render_nws_alerts(sections["nws_alerts"]),
-        _render_nws_forecast(sections["nws_forecast"]),
-        _render_ercot(sections["ercot"]),
-        _render_ghostmaps(sections["ghostmaps"]),
-        _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
-        _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
-        _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
-        _render_hf_bands(sections["hf_bands"]),
+        _guard("BLUF", _render_summary, summary),
+        _guard("NWS ALERTS", _render_nws_alerts, sections["nws_alerts"]),
+        _guard("NWS FORECAST", _render_nws_forecast, sections["nws_forecast"]),
+        _guard("ERCOT", _render_ercot, sections["ercot"]),
+        _guard("GHOSTMAPS", _render_ghostmaps, sections["ghostmaps"]),
+        *(
+            _guard(title, _render_rss_section, title, rss, key)
+            for title, key in (
+                ("HV EMERGENCY ALERTS", "emergency"),
+                ("HV POLICE", "police"),
+                ("HV FIRE DEPT", "fire"),
+            )
+        ),
+        _guard("HF BANDS", _render_hf_bands, sections["hf_bands"]),
     ]
+    if all(env.get("status") != "ok" for env in sections.values()):
+        # every section below will say unavailable; say it once up top too,
+        # so a reader on a bad link doesn't scroll for data that isn't there.
+        rendered.insert(1, "\nevery source failed this run. nothing below is current.")
     text = "\n".join(s for s in rendered if s)
 
     body = _linkify(text)
