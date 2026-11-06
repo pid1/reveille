@@ -360,6 +360,29 @@ def _linkify(text: str) -> str:
     return linked.replace(_B_OPEN, "<b>").replace(_B_CLOSE, "</b>")
 
 
+# -- last good copies -------------------------------------------------------
+
+
+def _mark_stale(title: str, text: str, stale_from: str) -> str:
+    """label a section rendered from the previous build's copy. a copy is
+    never hidden as a quiet day: the reader needs to see that today's fetch
+    failed even when the copy had nothing to show.
+    """
+    try:
+        when = datetime.fromisoformat(stale_from).strftime("%a %H:%M")
+    except TypeError, ValueError:
+        when = "an earlier build"
+    label = f"[fetch failed; showing copy from {when}]"
+    header = _rule(title)
+    if not text:
+        return f"{header}\n{label}\n  nothing to report in that copy"
+    return f"{header}\n{label}{text[len(header):]}"
+
+
+def _failed_today(env: dict) -> bool:
+    return env.get("status") != "ok" or bool(env.get("today_error"))
+
+
 # -- top-level --------------------------------------------------------------
 
 
@@ -400,27 +423,39 @@ def render_page(
     # rendered section so silent failures are not possible. filter empties
     # before joining so we don't end up with double blank lines.
     rss = sections["hv_rss"]
-    rendered = [
-        _header_block(now),
-        _guard("BLUF", _render_summary, summary),
-        _guard("NWS ALERTS", _render_nws_alerts, sections["nws_alerts"]),
-        _guard("NWS FORECAST", _render_nws_forecast, sections["nws_forecast"]),
-        _guard("ERCOT", _render_ercot, sections["ercot"]),
-        _guard("GHOSTMAPS", _render_ghostmaps, sections["ghostmaps"]),
+    rss_stale = (rss.get("data") or {}).get("stale") or {} if rss["status"] == "ok" else {}
+    # (title, renderer, args, when the last good copy is from if this is one)
+    parts = [
+        ("NWS ALERTS", _render_nws_alerts, (sections["nws_alerts"],)),
+        ("NWS FORECAST", _render_nws_forecast, (sections["nws_forecast"],)),
+        ("ERCOT", _render_ercot, (sections["ercot"],)),
+        ("GHOSTMAPS", _render_ghostmaps, (sections["ghostmaps"],)),
         *(
-            _guard(title, _render_rss_section, title, rss, key)
+            (title, _render_rss_section, (title, rss, key))
             for title, key in (
                 ("HV EMERGENCY ALERTS", "emergency"),
                 ("HV POLICE", "police"),
                 ("HV FIRE DEPT", "fire"),
             )
         ),
-        _guard("HF BANDS", _render_hf_bands, sections["hf_bands"]),
+        ("HF BANDS", _render_hf_bands, (sections["hf_bands"],)),
     ]
-    if all(env.get("status") != "ok" for env in sections.values()):
-        # every section below will say unavailable; say it once up top too,
-        # so a reader on a bad link doesn't scroll for data that isn't there.
-        rendered.insert(1, "\nevery source failed this run. nothing below is current.")
+    rendered = [_header_block(now), _guard("BLUF", _render_summary, summary)]
+    for title, fn, args in parts:
+        text = _guard(title, fn, *args)
+        env = args[0] if fn is not _render_rss_section else None
+        stale_from = env.get("stale_from") if env else rss_stale.get(args[2])
+        if stale_from:
+            text = _mark_stale(title, text, stale_from)
+        rendered.append(text)
+    if all(_failed_today(env) for env in sections.values()):
+        # every section below is unavailable or an older copy; say it once up
+        # top too, so a reader on a bad link doesn't take any of it as current.
+        rendered.insert(
+            1,
+            "\nevery source failed this run. sections below are"
+            "\nolder copies or unavailable.",
+        )
     text = "\n".join(s for s in rendered if s)
 
     body = _linkify(text)

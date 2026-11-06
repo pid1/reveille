@@ -28,6 +28,7 @@ from pathlib import Path
 from unittest import mock
 
 import build
+import lastgood
 import notifier
 import summarize
 from config import TIMEZONE
@@ -133,6 +134,8 @@ def _good_bodies() -> dict[str, bytes]:
             {"content": [{"type": "text", "text": "storms tonight, hail possible."}]}
         ).encode(),
         notifier.PUSHOVER_URL: json.dumps({"status": 1}).encode(),
+        # a first deploy: no previous copy of anything
+        lastgood.URL: lastgood.dumps({}).encode(),
     }
 
 
@@ -252,6 +255,8 @@ class Build:
         ):
             self.rc = build.main()
             self.html = (Path(tmp) / "index.html").read_text()
+            store = Path(tmp) / lastgood.FILENAME
+            self.store_text = store.read_text() if store.exists() else None
         self.log = log.getvalue()
         self.prompt = None
         sent = net.body_sent_to(summarize.ANTHROPIC_API)
@@ -263,7 +268,7 @@ class Build:
             self.push_message = urllib.parse.parse_qs(self.pushed)["message"][0]
 
 
-class DegradationTest(unittest.TestCase):
+class PageAsserts:
     def assertSectionOk(self, b: Build, key: str):
         title, marker = SECTIONS[key]
         self.assertIn(f"<b>{title}</b>", b.html, key)
@@ -280,6 +285,8 @@ class DegradationTest(unittest.TestCase):
         self.assertTrue(b.html.startswith("<!doctype html>"))
         self.assertTrue(b.html.rstrip().endswith("</html>"))
 
+
+class DegradationTest(PageAsserts, unittest.TestCase):
     def test_all_good(self):
         b = Build(FakeNet())
         self.assertBuilt(b)

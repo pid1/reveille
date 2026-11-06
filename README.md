@@ -156,6 +156,7 @@ scoping, and what to check if it starts happening again are in
 - **this is not a replacement for hyper-reach.** the city of highland village's real-time alerting system runs over phone/sms/alexa and is faster than rss for genuine emergencies. sign up at highlandvillage.org/notifyme. reveille is for morning situational awareness, not emergency notification.
 - **ghostmaps is community-maintained data.** s2 underground aggregates open-source intelligence; coverage and freshness vary. empty result lists are normal.
 - **ercot data depends on a third-party api.** if gridstatus.io is unreachable or its api shape changes, that section will be unavailable.
+- **a failed source shows its last good copy, labelled.** each build writes the data it got to `last-good.json` next to the page, deployed with it, and the next build reads it back from the live site. the forecast (past periods dropped), band conditions and city feeds carry over from yesterday; alerts, ghostmaps and ercot go stale too fast and only carry over within the same day. cutoffs and reasons are in `lastgood.py`. the page itself does not grow; readers never fetch that file.
 - **the ai summary is best-effort.** if anthropic's api is down or rate-limited, the page renders without it. the raw data is always present.
 
 ## license

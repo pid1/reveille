@@ -28,6 +28,8 @@ HEADERS = """\
   Cache-Control: no-cache
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+/last-good.json
+  X-Robots-Tag: noindex
 """
 
 
@@ -83,8 +85,17 @@ def main() -> int:
     # import render after config has validated env
     from render import render_page
 
+    import lastgood
+
     now = datetime.now(TIMEZONE)
     sections = _gather()
+    # a failed section falls back to the previous build's copy, if it is
+    # recent enough. see lastgood.py for where that copy lives and why.
+    store = lastgood.apply(sections, lastgood.load(), now)
+    stale = [k for k, v in sections.items() if v.get("stale_from")]
+    stale += [f"hv_rss.{f}" for f in (sections["hv_rss"]["data"] or {}).get("stale", {})]
+    if stale:
+        print(f"[build] showing last good copy for: {', '.join(stale)}", flush=True)
     summary = _generate_summary(sections, now)
 
     commit_sha = os.environ.get("GITHUB_SHA") or os.environ.get("GIT_COMMIT") or None
@@ -100,6 +111,11 @@ def main() -> int:
     print(f"[build] wrote {out_path} ({size} bytes)", flush=True)
 
     (DIST / "_headers").write_text(HEADERS, encoding="utf-8")
+    try:
+        (DIST / lastgood.FILENAME).write_text(lastgood.dumps(store), encoding="utf-8")
+    except Exception as e:
+        # costs tomorrow's fallback copies, not today's page
+        print(f"[build] could not write {lastgood.FILENAME}: {e}", flush=True)
     if size > 50_000:
         print(f"[build] WARN: page is {size} bytes, above the 20KB target", flush=True)
 

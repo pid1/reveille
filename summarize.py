@@ -131,20 +131,32 @@ def _safe_fmt(fn, *args) -> str:
         return f"unavailable (could not format: {type(e).__name__})"
 
 
+def _section(fn, env: dict, *args) -> str:
+    """format one section, noting when it is the previous build's copy so the
+    model doesn't report day-old data as this morning's."""
+    text = _safe_fmt(fn, env, *args)
+    stale_from = env.get("stale_from")
+    if args and env.get("status") == "ok":  # hv_rss: stale per feed
+        stale_from = ((env["data"] or {}).get("stale") or {}).get(args[0])
+    if stale_from:
+        return f"(today's fetch failed; copy from {stale_from}) {text}"
+    return text
+
+
 def format_blob(sections: dict, now: datetime) -> str:
     # without a "now" the model guesses today from whatever dates the data
     # happens to carry -- on 2026-09-28 it took an alert "issued september
     # 27" as today and called a same-day 8:30pm expiry "tomorrow".
     return (
         f"NOW: {now.strftime('%A %Y-%m-%d %H:%M %Z')}\n"
-        f"NWS_ALERTS: {_safe_fmt(_fmt_nws_alerts, sections['nws_alerts'])}\n"
-        f"NWS_FORECAST: {_safe_fmt(_fmt_forecast, sections['nws_forecast'])}\n"
-        f"ERCOT: {_safe_fmt(_fmt_ercot, sections['ercot'])}\n"
-        f"HV_EMERGENCY: {_safe_fmt(_fmt_rss, sections['hv_rss'], 'emergency')}\n"
-        f"HV_POLICE: {_safe_fmt(_fmt_rss, sections['hv_rss'], 'police')}\n"
-        f"HV_FIRE: {_safe_fmt(_fmt_rss, sections['hv_rss'], 'fire')}\n"
-        f"GHOSTMAPS_NEARBY: {_safe_fmt(_fmt_ghostmaps, sections['ghostmaps'])}\n"
-        f"HF_PROPAGATION: {_safe_fmt(_fmt_hf_bands, sections['hf_bands'])}\n"
+        f"NWS_ALERTS: {_section(_fmt_nws_alerts, sections['nws_alerts'])}\n"
+        f"NWS_FORECAST: {_section(_fmt_forecast, sections['nws_forecast'])}\n"
+        f"ERCOT: {_section(_fmt_ercot, sections['ercot'])}\n"
+        f"HV_EMERGENCY: {_section(_fmt_rss, sections['hv_rss'], 'emergency')}\n"
+        f"HV_POLICE: {_section(_fmt_rss, sections['hv_rss'], 'police')}\n"
+        f"HV_FIRE: {_section(_fmt_rss, sections['hv_rss'], 'fire')}\n"
+        f"GHOSTMAPS_NEARBY: {_section(_fmt_ghostmaps, sections['ghostmaps'])}\n"
+        f"HF_PROPAGATION: {_section(_fmt_hf_bands, sections['hf_bands'])}\n"
     )
 
 
