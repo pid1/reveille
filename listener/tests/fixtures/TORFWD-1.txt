@@ -1,0 +1,51 @@
+WFUS54 KFWD 190906
+TORFWD
+TXC363-190930-
+/O.NEW.KFWD.TO.W.0027.260619T0906Z-260619T0930Z/
+
+BULLETIN - EAS ACTIVATION REQUESTED
+Tornado Warning
+National Weather Service Fort Worth TX
+406 AM CDT Fri Jun 19 2026
+
+The National Weather Service in Fort Worth has issued a
+
+* Tornado Warning for...
+  Northeastern Palo Pinto County in north central Texas...
+
+* Until 430 AM CDT.
+
+* At 405 AM CDT, a severe thunderstorm capable of producing a 
+  tornado was located 5 miles southwest of Graford, or 14 miles west 
+  of Mineral Wells, moving southeast at 10 mph.
+
+  HAZARD...Tornado.
+
+  SOURCE...Radar indicated rotation.
+
+  IMPACT...Flying debris will be dangerous to those caught without 
+           shelter. Mobile homes will be damaged or destroyed. 
+           Damage to roofs, windows, and vehicles will occur.  Tree 
+           damage is likely.
+
+* Locations impacted include...
+  Mineral Wells and Palo Pinto.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+TAKE COVER NOW! Move to an interior room on the lowest floor of a
+sturdy building. Avoid windows. If you are outdoors, in a mobile
+home, or in a vehicle, move to the closest substantial shelter and
+protect yourself from flying debris.
+
+&&
+
+LAT...LON 3286 9840 3293 9835 3289 9806 3268 9820
+TIME...MOT...LOC 0905Z 300DEG 8KT 3288 9832 
+
+TORNADO...RADAR INDICATED
+MAX HAIL SIZE...<.75 IN
+
+$$
+
+Shamburger

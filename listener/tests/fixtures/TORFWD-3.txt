@@ -1,0 +1,55 @@
+WFUS54 KFWD 290012
+TORFWD
+TXC217-251-290100-
+/O.NEW.KFWD.TO.W.0025.260429T0012Z-260429T0100Z/
+
+BULLETIN - EAS ACTIVATION REQUESTED
+Tornado Warning
+National Weather Service Fort Worth TX
+712 PM CDT Tue Apr 28 2026
+
+The National Weather Service in Fort Worth has issued a
+
+* Tornado Warning for...
+  South central Johnson County in north central Texas...
+  Northwestern Hill County in central Texas...
+
+* Until 800 PM CDT.
+
+* At 712 PM CDT, a severe thunderstorm capable of producing a 
+  tornado was located near Rio Vista, or 8 miles south of Cleburne, 
+  moving southeast at 25 mph.
+
+  HAZARD...Tornado and baseball size hail.
+
+  SOURCE...Radar indicated rotation.
+
+  IMPACT...Flying debris will be dangerous to those caught without 
+           shelter. Mobile homes will be damaged or destroyed. 
+           Damage to roofs, windows, and vehicles will occur.  Tree 
+           damage is likely.
+
+* Locations impacted include...
+  Itasca, Covington, Parker, Rio Vista, Osceola, Lovelace, Woodbury,
+  and Mayfield.
+
+This includes Interstate 35W between mile markers 2 and 9.
+ 
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+This is a dangerous storm, capable of producing large hail driven by
+severe winds! SEEK SHELTER NOW inside a sturdy structure and stay
+away from windows! If you are caught outdoors, cover your head and
+neck.
+
+&&
+
+LAT...LON 3226 9743 3231 9734 3212 9703 3197 9728
+TIME...MOT...LOC 0012Z 316DEG 20KT 3224 9735 
+
+TORNADO...RADAR INDICATED
+MAX HAIL SIZE...2.75 IN
+
+$$
+
+Shamburger

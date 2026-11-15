@@ -1,0 +1,53 @@
+WGUS54 KFWD 032311
+FFWFWD
+TXC213-040200-
+/O.EXT.KFWD.FF.W.0094.000000T0000Z-261004T0200Z/
+/00000.0.ER.000000T0000Z.000000T0000Z.000000T0000Z.OO/
+
+BULLETIN - EAS ACTIVATION REQUESTED
+Flash Flood Warning
+National Weather Service Fort Worth TX
+611 PM CDT Sat Oct 3 2026
+
+The National Weather Service in Fort Worth has extended the
+
+* Flash Flood Warning for...
+  Central Henderson County in central Texas...
+
+* Until 900 PM CDT.
+
+* At 611 PM CDT, storms continue producing heavy rain in Athens.
+  Numerous reports and videos have been received of flooded roadways
+  and stranded vehicles. Between 6 and 8 inches of rain have fallen.
+  Additional rainfall amounts up to 2 inches are possible in the
+  warned area. Flash flooding is already occurring.
+
+  HAZARD...Life threatening flash flooding. Thunderstorms producing
+           flash flooding.
+
+  SOURCE...Public reported.
+
+  IMPACT...Life threatening flash flooding of creeks and streams,
+           urban areas, highways, streets and underpasses.
+
+* Some locations that will experience flash flooding include...
+  Athens and Crescent Heights.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+Turn around, don't drown when encountering flooded roads. Most flood
+deaths occur in vehicles.
+
+Be aware of your surroundings and do not drive on flooded roads.
+
+&&
+
+LAT...LON 3224 9588 3219 9596 3212 9583 3215 9577
+      3224 9578 3225 9583
+
+FLASH FLOOD...OBSERVED
+FLASH FLOOD DAMAGE THREAT...CONSIDERABLE
+
+$$
+
+Darrah

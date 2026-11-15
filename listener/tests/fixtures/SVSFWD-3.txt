@@ -1,0 +1,35 @@
+WWUS54 KFWD 030326
+SVSFWD
+
+Severe Weather Statement
+National Weather Service Fort Worth TX
+926 PM CST Mon Nov 2 2026
+
+TXC337-030336-
+/O.EXP.KFWD.SV.W.0271.000000T0000Z-261103T0330Z/
+Montague TX-
+926 PM CST Mon Nov 2 2026
+
+...THE SEVERE THUNDERSTORM WARNING FOR MONTAGUE COUNTY WILL EXPIRE AT
+930 PM CST...
+
+The storm which prompted the warning has weakened below severe
+limits. Therefore the warning will be allowed to expire.  However
+small hail, gusty winds and heavy rain are still possible with this
+thunderstorm.
+
+A Tornado Watch remains in effect until 1100 PM CST for north central
+Texas.
+
+&&
+
+LAT...LON 3398 9763 3395 9759 3392 9760 3390 9758
+      3391 9748 3366 9749 3355 9798 3389 9798
+      3385 9787 3386 9783 3388 9782 3388 9780
+      3390 9780 3390 9778 3392 9778 3391 9776
+      3394 9776 3394 9773 3399 9768
+TIME...MOT...LOC 0326Z 257DEG 44KT 3377 9756 
+
+$$
+
+Darrah

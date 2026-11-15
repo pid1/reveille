@@ -1,0 +1,53 @@
+WWUS54 KFWD 030409
+SVSFWD
+
+Severe Weather Statement
+National Weather Service Fort Worth TX
+1009 PM CST Mon Nov 2 2026
+
+TXC093-133-143-030445-
+/O.CON.KFWD.SV.W.0272.000000T0000Z-261103T0445Z/
+Erath TX-Eastland TX-Comanche TX-
+1009 PM CST Mon Nov 2 2026
+
+...A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1045 PM CST
+FOR NORTHWESTERN ERATH...SOUTHEASTERN EASTLAND AND NORTH CENTRAL
+COMANCHE COUNTIES...
+
+At 1009 PM CST, a severe thunderstorm was located near De Leon, or 13
+miles northwest of Dublin, moving east at 55 mph.
+
+HAZARD...60 mph wind gusts and quarter size hail.
+
+SOURCE...Radar indicated.
+
+IMPACT...Hail damage to vehicles is expected. Expect wind damage to 
+         roofs, siding, and trees.
+
+This severe thunderstorm will remain over mainly rural areas of
+northwestern Erath, southeastern Eastland and north central Comanche
+Counties, including the following locations... Comyn, Rucker, Harbin,
+Beattie, Lingleville, Duster, Desdemona, Bunyan, and Highland.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+A Tornado Watch remains in effect until 1100 PM CST for central and
+north central Texas.
+
+For your protection stay inside a sturdy structure and keep away from
+windows.
+
+&&
+
+LAT...LON 3241 9836 3212 9822 3202 9869 3211 9871
+      3221 9876
+TIME...MOT...LOC 0409Z 251DEG 46KT 3217 9855 
+
+HAIL THREAT...RADAR INDICATED
+MAX HAIL SIZE...1.00 IN
+WIND THREAT...RADAR INDICATED
+MAX WIND GUST...60 MPH
+
+$$
+
+Darrah

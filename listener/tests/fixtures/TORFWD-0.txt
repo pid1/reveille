@@ -1,0 +1,53 @@
+WFUS54 KFWD 190923
+TORFWD
+TXC363-367-191015-
+/O.NEW.KFWD.TO.W.0028.260619T0923Z-260619T1015Z/
+
+BULLETIN - EAS ACTIVATION REQUESTED
+Tornado Warning
+National Weather Service Fort Worth TX
+423 AM CDT Fri Jun 19 2026
+
+The National Weather Service in Fort Worth has issued a
+
+* Tornado Warning for...
+  Western Parker County in north central Texas...
+  Northeastern Palo Pinto County in north central Texas...
+
+* Until 515 AM CDT.
+
+* At 423 AM CDT, a severe thunderstorm capable of producing a tornado
+  was located near Mineral Wells, moving east at 20 mph.
+
+  HAZARD...Tornado.
+
+  SOURCE...Radar indicated rotation.
+
+  IMPACT...Flying debris will be dangerous to those caught without 
+           shelter. Mobile homes will be damaged or destroyed. 
+           Damage to roofs, windows, and vehicles will occur.  Tree 
+           damage is likely.
+
+* Locations impacted include...
+  Weatherford, Mineral Wells, Brock, Cool, Lake Mineral Wells,
+  Millsap, Adell, Salesville, Brock Junction, Peaster, Bennett,
+  Authon, and Garner.
+
+This includes Interstate 20 between mile markers 396 and 409.
+ 
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+Tornadoes are extremely difficult to see and confirm at night. Do not
+wait to see or hear the tornado. TAKE COVER NOW!
+
+&&
+
+LAT...LON 3276 9824 3291 9819 3290 9772 3263 9778
+TIME...MOT...LOC 0923Z 276DEG 18KT 3281 9814 
+
+TORNADO...RADAR INDICATED
+MAX HAIL SIZE...<.75 IN
+
+$$
+
+Shamburger

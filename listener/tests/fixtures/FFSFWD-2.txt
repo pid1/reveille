@@ -1,0 +1,29 @@
+WGUS74 KFWD 032107
+FFSFWD
+
+Flash Flood Statement
+National Weather Service Fort Worth TX
+407 PM CDT Sat Oct 3 2026
+
+TXC027-099-309-032117-
+/O.EXP.KFWD.FF.W.0093.000000T0000Z-261003T2115Z/
+/00000.0.ER.000000T0000Z.000000T0000Z.000000T0000Z.OO/
+Bell TX-Coryell TX-McLennan TX-
+407 PM CDT Sat Oct 3 2026
+
+...FLASH FLOOD WARNING WILL EXPIRE AT 415 PM CDT THIS AFTERNOON FOR
+NORTH CENTRAL BELL, SOUTHEASTERN CORYELL AND SOUTHWESTERN MCLENNAN
+COUNTIES...
+
+The heavy rain has ended. However, areas of localized flooding will
+remain possible as excess water continues to run off. Please continue
+to heed remaining road closures.
+
+&&
+
+LAT...LON 3119 9768 3125 9768 3142 9751 3146 9742
+      3146 9732 3143 9725 3106 9745 3104 9767
+
+$$
+
+Darrah

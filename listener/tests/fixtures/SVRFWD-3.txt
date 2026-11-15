@@ -1,0 +1,56 @@
+WUUS54 KFWD 280258
+SVRFWD
+TXC181-280400-
+/O.NEW.KFWD.SV.W.0269.260928T0258Z-260928T0400Z/
+
+BULLETIN - IMMEDIATE BROADCAST REQUESTED
+Severe Thunderstorm Warning
+National Weather Service Fort Worth TX
+958 PM CDT Sun Sep 27 2026
+
+The National Weather Service in Fort Worth has issued a
+
+* Severe Thunderstorm Warning for...
+  Northeastern Grayson County in north central Texas...
+
+* Until 1100 PM CDT.
+
+* At 958 PM CDT, a severe thunderstorm was located over Randell Lake,
+  or 12 miles north of Sherman, moving southeast at 15 mph.
+
+  HAZARD...60 mph wind gusts and quarter size hail.
+
+  SOURCE...Radar indicated.
+
+  IMPACT...Hail damage to vehicles is expected. Expect wind damage 
+           to roofs, siding, and trees.
+
+* This severe thunderstorm will be near...
+  Denison around 1005 PM CDT.
+
+Other locations impacted by this severe thunderstorm include
+Carpenters Bluff, Ambrose, and Preston.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+For your protection get inside a sturdy structure and stay away from
+windows.
+
+Continuous cloud to ground lightning is occurring with this storm.
+Move indoors immediately. Lightning can kill.
+
+&&
+
+LAT...LON 3385 9663 3382 9658 3382 9653 3377 9650
+      3378 9643 3373 9638 3362 9638 3380 9672
+      3386 9667 3386 9662
+TIME...MOT...LOC 0258Z 293DEG 13KT 3380 9660 
+
+HAIL THREAT...RADAR INDICATED
+MAX HAIL SIZE...1.00 IN
+WIND THREAT...RADAR INDICATED
+MAX WIND GUST...60 MPH
+
+$$
+
+Prater
