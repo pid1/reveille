@@ -12,7 +12,7 @@
 - Never run `wrangler deploy` without `--dry-run`, or `scripts/trigger-build.sh`. Both start a production deploy.
 
 - `uv run python -m unittest` runs the page tests with no network.
-- `node --test infra/full/test/` tests the reveille-full Worker. `npm exec --prefix .github/wrangler --no-install -- wrangler deploy --dry-run` in `infra/full/` checks its config.
+- `node --test infra/full/test/*.test.js` tests the reveille-full Worker. `npm exec --prefix .github/wrangler --no-install -- wrangler deploy --dry-run` in `infra/full/` checks its config.
 - In `listener/`: `uv sync --locked`, then `uv run python -m unittest discover -s tests`. Never run the listener against NWWS-OI anywhere but the NAS: the account allows one connection. Use `python -m nwws_listener replay <files>` instead.
 
 ### Toolchain

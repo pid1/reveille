@@ -1,4 +1,4 @@
-// node --test infra/full/test/
+// node --test infra/full/test/*.test.js
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { afdParts, dailyRows, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";

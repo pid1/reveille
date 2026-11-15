@@ -49,7 +49,7 @@ npx wrangler secret put HEALTHCHECK_URL   # optional dead-man's switch
 ## check
 
 ```bash
-node --test infra/full/test/
+node --test infra/full/test/*.test.js
 npx wrangler tail reveille-full
 ```
 
