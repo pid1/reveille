@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { afdParts, dailyRows, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
 import { alertPushes, morningRun, run } from "../src/index.js";
-import { renderText, weatherWords } from "../src/render.js";
+import { renderText, spotterMatters, weatherWords } from "../src/render.js";
 
 test("vtec keys match the nas listener's format", () => {
   assert.deepEqual(vtecKey("/O.NEW.KFWD.TO.W.0028.260619T0923Z-260619T1015Z/").key, "2026.KFWD.TO.W.0028");
@@ -128,4 +128,14 @@ test("current conditions read as words, with no raw metar", () => {
   assert.match(text, /^light rain, overcast at 1,000 ft, 7 mi visibility$/m);
   assert.match(text, /^\(denton enterprise airport, 14:53\)$/m);
   assert.doesNotMatch(text, /METAR|TAF/);
+});
+
+test("the spotter line shows only when activation is possible or happening", () => {
+  assert.equal(spotterMatters("Spotter activation is not expected at this time."), false);
+  assert.equal(spotterMatters("Spotter activation will not be needed today."), false);
+  assert.equal(spotterMatters("Spotter activation is unlikely."), false);
+  assert.equal(spotterMatters(""), false);
+  assert.equal(spotterMatters("Spotter activation may be requested this afternoon and evening."), true);
+  assert.equal(spotterMatters("Spotter activation is likely tonight."), true);
+  assert.equal(spotterMatters("Spotters are currently activated."), true);
 });

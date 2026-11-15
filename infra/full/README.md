@@ -9,7 +9,8 @@ and the poll-side backup for warning pushes. no llm.
   reason (`http 500`, `timeout`). absent when everything worked. error text never reaches the page.
 - active alerts (warnings in caps between stars, watches between single stars)
 - spc mesoscale discussions covering the point, spc day 1-3 and wpc excessive rain day 1-3
-  (only when there is a risk), and the fort worth office's spotter statement
+  (only when there is a risk), and the fort worth office's spotter statement (only when
+  activation is possible or under way)
 - current conditions from the nearest airport, in words
 - the next 36 hours: hourly for 12, then every 3 hours, from the raw nws grid
 - 7 days, the forecast discussion's key messages, sunrise and sunset
