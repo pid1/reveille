@@ -153,3 +153,21 @@ export function shortReason(err) {
   if (/network|fetch failed|connection/.test(e)) return "network";
   return "bad data";
 }
+
+// hamqsl's solar xml (n0nbh, credited in infra/full/README.md) -> the band
+// grid and the two vhf entries that apply here. regex, not an xml parser:
+// workers have no DOMParser and the shape is flat and stable.
+export const HF_BANDS = ["80m-40m", "30m-20m", "17m-15m", "12m-10m"];
+export function parseHamqsl(xml) {
+  const cond = { day: {}, night: {} };
+  for (const m of String(xml).matchAll(/<band name="([^"]+)" time="(day|night)">([^<]*)<\/band>/g)) {
+    if (HF_BANDS.includes(m[1])) cond[m[2]][m[1]] = m[3].trim().toLowerCase().slice(0, 12);
+  }
+  if (!Object.keys(cond.day).length && !Object.keys(cond.night).length) throw new Error("no band conditions in hamqsl response");
+  const vhf = {};
+  for (const m of String(xml).matchAll(/<phenomenon name="([^"]+)" location="([^"]+)">([^<]*)<\/phenomenon>/g)) {
+    const key = m[1] === "E-Skip" && m[2] === "north_america" ? "e-skip" : m[1] === "vhf-aurora" && m[2] === "northern_hemi" ? "aurora" : null;
+    if (key) vhf[key] = m[3].trim().toLowerCase().slice(0, 16);
+  }
+  return { conditions: cond, vhf };
+}

@@ -6,7 +6,7 @@
 // the nas has not already pushed.
 // fetch(): serve the page from kv; accept the nas's "already pushed" report.
 
-import { priorityFor, shortReason, vtecKey } from "./parse.js";
+import { parseHamqsl, priorityFor, shortReason, vtecKey } from "./parse.js";
 import { plain, renderText, toHtml } from "./render.js";
 
 const UA = "reveille-full (github.com/pid1/reveille)";
@@ -16,7 +16,7 @@ const STUCK_MS = 25 * 60e3;
 
 // how long a copy may stand in for a failed fetch. alerts and current
 // conditions never carry over: an old copy of either reads as current.
-const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, spc: 12, ero: 12 };
+const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, spc: 12, ero: 12, hf: 48 };
 
 async function get(url, { json = true, timeout = 8000, headers = {} } = {}) {
   const r = await fetch(url, { headers: { "User-Agent": UA, Accept: json ? "application/geo+json, application/json" : "text/plain", ...headers }, signal: AbortSignal.timeout(timeout) });
@@ -76,6 +76,13 @@ async function gather(env, state, now) {
     afd: async () => (await get(`${NWS}/products/types/AFD/locations/${pts.office}/latest`)).productText,
     spc: () => iemDays(`${IEM}/spcoutlook.py?lat=${lat}&lon=${lon}&cat=categorical`, now),
     ero: () => iemDays(`${IEM}/wpcoutlook.py?lat=${lat}&lon=${lon}`, now),
+    // n0nbh asks for no more than one request an hour; reuse the last copy
+    // in between (it is marked fresh, not stale: nothing failed)
+    hf: async () => {
+      const c = (state.copies || {}).hf;
+      if (c && now - c.at < 3600e3) return { reuse: c };
+      return parseHamqsl(await get("https://www.hamqsl.com/solarxml.php", { json: false }));
+    },
     mcd: async () => {
       const d = await get(`${IEM}/spcmcd.py?lat=${lat}&lon=${lon}`, { timeout: 20000 });
       return (d.mcds || []).filter((m) => Date.parse(m.utc_expire) > now).map((m) => ({ num: m.product_num, concerning: m.concerning || "", watch: m.watch_confidence }));
@@ -88,6 +95,10 @@ async function gather(env, state, now) {
   names.forEach((n, i) => {
     const r = results[i];
     if (r.status === "fulfilled") {
+      if (r.value && r.value.reuse) {
+        s[n] = r.value.reuse;
+        return;
+      }
       s[n] = { data: r.value, at: now };
       if (n in COPY_HOURS) state.copies[n] = s[n];
       return;
@@ -105,7 +116,7 @@ async function gather(env, state, now) {
   return s;
 }
 
-const NAMES = { alerts: "nws alerts", obs: "current conditions", grid: "hourly forecast", forecast: "7-day forecast", afd: "forecast discussion", spc: "spc outlook", ero: "excessive rain outlook", mcd: "mesoscale discussions" };
+const NAMES = { alerts: "nws alerts", obs: "current conditions", grid: "hourly forecast", forecast: "7-day forecast", afd: "forecast discussion", spc: "spc outlook", ero: "excessive rain outlook", mcd: "mesoscale discussions", hf: "hf bands" };
 
 // -- pushes -------------------------------------------------------------------
 
