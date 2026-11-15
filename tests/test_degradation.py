@@ -3,9 +3,11 @@
 every test runs the real build.main() against a fake urllib opener that
 serves a canned good response for every source, then breaks one of them
 in one way (timeout, dns failure, http 5xx, malformed body, missing key).
-it then checks that the page was written, that the broken section shows an
-[unavailable: ...] notice instead of vanishing, that every other section is
-still there, and that the summary prompt and the push still went out.
+it then checks that the page was written, that the broken source is named
+with a short reason in the one "failed:" line under the timestamp (and its
+section is otherwise left out, so a failure costs a few bytes, not a
+screenful), that every other section is still there, and that the summary
+prompt and the push still went out.
 
 no real network: an unknown url fails the test.
 """
@@ -32,7 +34,7 @@ import lastgood
 import notifier
 import summarize
 from config import TIMEZONE
-from fetchers import base, ercot, hf_bands, hv_rss
+from fetchers import base, ercot, hf_bands, hv_rss, spc
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -130,6 +132,7 @@ def _good_bodies() -> dict[str, bytes]:
         ).encode(),
         KMZ: kmz.getvalue(),
         hf_bands.URL: (FIXTURES / "hamqsl_solarxml.xml").read_bytes(),
+        spc.URL: json.dumps({"outlook": {"threshold": "SLGT"}}).encode(),
         summarize.ANTHROPIC_API: json.dumps(
             {"content": [{"type": "text", "text": "storms tonight, hail possible."}]}
         ).encode(),
@@ -141,14 +144,17 @@ def _good_bodies() -> dict[str, bytes]:
 
 # what each section looks like on a good build: (section title, text in it)
 SECTIONS = {
-    "nws_alerts": ("NWS ALERTS", "Severe Thunderstorm Watch"),
-    "nws_forecast": ("NWS FORECAST", "Test Forecast Text"),
-    "ercot": ("ERCOT", "45,000 MW"),
-    "ghostmaps": ("GHOSTMAPS", "Test Incident"),
-    "rss_emergency": ("HV EMERGENCY ALERTS", "Test emergency item"),
-    "rss_police": ("HV POLICE", "Test police item"),
-    "rss_fire": ("HV FIRE DEPT", "Test fire item"),
-    "hf_bands": ("HF BANDS", "sfi 124"),
+    # key: (section title or None, text when ok or None, name in the failed line)
+    "nws_alerts": ("NWS ALERTS", "Severe Thunderstorm Watch", "nws alerts ("),
+    "nws_forecast": ("NWS FORECAST", "Test Forecast Text", "nws forecast ("),
+    "ercot": ("ERCOT", "45,000 MW", "ercot ("),
+    "ghostmaps": ("GHOSTMAPS", "Test Incident", "ghostmaps ("),
+    "hf_bands": ("HF BANDS", "sfi 124", "hf bands ("),
+    # the city feeds are only a link now; spc is one line
+    "rss_emergency": (None, None, "city emergency feed ("),
+    "rss_police": (None, None, "city police feed ("),
+    "rss_fire": (None, None, "city fire feed ("),
+    "spc": (None, "d1 SLGT (2/5)", "spc outlook ("),
 }
 BLUF = "storms tonight, hail possible."
 
@@ -164,6 +170,7 @@ SOURCES = {
     "ghostmaps_listing": ([GH_LIST], ["ghostmaps"]),
     "ghostmaps_kmz": ([KMZ], ["ghostmaps"]),
     "hf_bands": ([hf_bands.URL], ["hf_bands"]),
+    "spc": ([spc.URL], ["spc"]),
 }
 
 # summary-blob label for each section, to check the prompt still goes out
@@ -176,6 +183,7 @@ BLOB = {
     "rss_police": "HV_POLICE",
     "rss_fire": "HV_FIRE",
     "hf_bands": "HF_PROPAGATION",
+    "spc": "SPC_OUTLOOK",
 }
 
 
@@ -269,15 +277,27 @@ class Build:
 
 
 class PageAsserts:
+    def failed_line(self, b: Build) -> str:
+        return next((l for l in b.html.splitlines() if l.startswith("failed: ")), "")
+
     def assertSectionOk(self, b: Build, key: str):
-        title, marker = SECTIONS[key]
-        self.assertIn(f"<b>{title}</b>", b.html, key)
-        self.assertIn(marker, b.html, key)
+        title, marker, name = SECTIONS[key]
+        if title:
+            self.assertIn(f"<b>{title}</b>", b.html, key)
+        if marker:
+            self.assertIn(marker, b.html, key)
+        self.assertNotIn(name, self.failed_line(b), key)
 
     def assertSectionUnavailable(self, b: Build, key: str):
-        title, marker = SECTIONS[key]
-        self.assertIn(f"<b>{title}</b>\n\n[unavailable: ", b.html, key)
-        self.assertNotIn(marker, b.html, key)
+        """noted in one short line at the top, and otherwise absent"""
+        title, marker, name = SECTIONS[key]
+        self.assertIn(name, self.failed_line(b), key)
+        if title:
+            self.assertNotIn(f"<b>{title}</b>", b.html, key)
+        if marker:
+            self.assertNotIn(marker, b.html, key)
+        self.assertNotIn("<html>upstream", b.html)
+        self.assertNotIn("[unavailable", b.html)
 
     def assertBuilt(self, b: Build):
         self.assertEqual(b.rc, 0)
@@ -290,6 +310,11 @@ class DegradationTest(PageAsserts, unittest.TestCase):
     def test_all_good(self):
         b = Build(FakeNet())
         self.assertBuilt(b)
+        # nothing failed, so no failed line at all
+        self.assertNotIn("failed: ", b.html)
+        self.assertIn("city news: 3 posts in 2 days", b.html)
+        self.assertNotIn("Test police item", b.html)
+        self.assertIn("full.reveille.pid1.space", b.html)
         self.assertIn(BLUF, b.html)
         for key in SECTIONS:
             self.assertSectionOk(b, key)
@@ -320,7 +345,7 @@ class DegradationTest(PageAsserts, unittest.TestCase):
                 api = summarize.ANTHROPIC_API
                 b = Build(FakeNet({api: make(api)}))
                 self.assertBuilt(b)
-                self.assertIn("[ai summary unavailable -- see raw data below]", b.html)
+                self.assertIn("[summary unavailable; raw data below]", b.html)
                 for key in SECTIONS:
                     self.assertSectionOk(b, key)
                 # no BLUF, so the short fallback push instead
@@ -331,8 +356,8 @@ class DegradationTest(PageAsserts, unittest.TestCase):
         reply = json.dumps({"content": [{"type": "thinking"}], "stop_reason": "max_tokens"})
         b = Build(FakeNet({api: reply.encode()}))
         self.assertBuilt(b)
-        self.assertIn("[ai summary unavailable", b.html)
-        self.assertIn("no text block", b.html)
+        self.assertIn("[summary unavailable", b.html)
+        self.assertIn("summary (bad data)", b.html)
 
     def test_no_anthropic_key_still_pushes_fallback(self):
         env = {k: v for k, v in KEYS.items() if k != "ANTHROPIC_API_KEY"}
@@ -367,7 +392,7 @@ class DegradationTest(PageAsserts, unittest.TestCase):
     def test_no_keys(self):
         b = Build(FakeNet(), env={})
         self.assertBuilt(b)
-        self.assertIn("reason: ANTHROPIC_API_KEY not set", b.html)
+        self.assertIn("summary (not configured)", b.html)
         for key in SECTIONS:
             self.assertSectionOk(b, key)
         self.assertIsNone(b.prompt)
@@ -408,7 +433,8 @@ class DegradationTest(PageAsserts, unittest.TestCase):
         fc = {"properties": {"periods": [period]}}
         b = Build(FakeNet({FORECAST: json.dumps(fc).encode()}))
         self.assertBuilt(b)
-        self.assertIn("<b>NWS FORECAST</b>\n\n[unavailable: ", b.html)
+        self.assertIn("nws forecast (display error)", b.html)
+        self.assertNotIn("<b>NWS FORECAST</b>", b.html)
         for key in SECTIONS:
             if key != "nws_forecast":
                 self.assertSectionOk(b, key)
@@ -417,22 +443,22 @@ class DegradationTest(PageAsserts, unittest.TestCase):
     def test_long_error_body_is_cut_on_the_page(self):
         big = urllib.error.HTTPError(ALERTS, 502, "bad", {}, io.BytesIO(b"x" * 5000))
         b = Build(FakeNet({ALERTS: big}))
-        line = next(l for l in b.html.splitlines() if l.startswith("[unavailable: "))
-        self.assertLessEqual(len(line), 200)
+        line = next(l for l in b.html.splitlines() if l.startswith("failed: "))
+        self.assertEqual(line, "failed: nws alerts (http 502)")
+        self.assertNotIn("xxxx", b.html)
 
     def test_everything_failed(self):
         dead = urllib.error.URLError(socket.gaierror(8, "no dns"))
         net = FakeNet({"https://": dead})
         b = Build(net)
         self.assertBuilt(b)
-        self.assertIn("[ai summary unavailable", b.html)
+        self.assertIn("[summary unavailable", b.html)
         for key in SECTIONS:
-            title, _ = SECTIONS[key]
-            self.assertIn(f"<b>{title}</b>\n\n[unavailable: ", b.html, key)
+            self.assertSectionUnavailable(b, key)
         self.assertIn("every source failed", b.html)
-        # the url in "fetching <url>: <reason>" links without the colon
-        self.assertIn('<a href="https://api.weather.gov/alerts/active?', b.html)
-        self.assertNotIn(':">', b.html)
+        self.assertIn("nws alerts (", b.html)
+        # a dead morning is still a small page
+        self.assertLess(len(b.html), 2000)
 
 
 class DeadlineTest(unittest.TestCase):

@@ -170,7 +170,8 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
             ],
         }
         b = Build(_net({"nws_alerts": entry}, {ALERTS: DEAD}))
-        self.assertIn("<b>NWS ALERTS</b>\n\n[unavailable: ", b.html)
+        self.assertNotIn("<b>NWS ALERTS</b>", b.html)
+        self.assertIn("failed: nws alerts (", b.html)
         self.assertNotIn("Winter Storm Warning", b.html)
 
     def test_copy_with_nothing_to_show_is_not_hidden(self):
@@ -195,13 +196,13 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
             "data": [{"title": "Yesterday police item", "link": "", "published": "", "summary": ""}],
         }
         b = Build(_net({"hv_rss.police": entry}, {hv_rss.FEEDS["police"]: DEAD}))
-        police = self.section(b.html, "HV POLICE")
-        self.assertIn(LABEL, police)
-        self.assertIn("Yesterday police item", police)
+        # the feeds aren't listed on the page any more; the status line says
+        # which one failed, and the summary still gets the copy
+        self.assertIn("city police feed (older copy used)", b.html)
         self.assertSectionOk(b, "rss_emergency")
         self.assertSectionOk(b, "rss_fire")
-        self.assertNotIn(LABEL, self.section(b.html, "HV FIRE DEPT"))
         self.assertIn("HV_POLICE: (today's fetch failed; copy from ", b.prompt)
+        self.assertIn("Yesterday police item", b.prompt)
 
     def test_everything_failed_with_yesterdays_copy(self):
         # yesterday's good build, then every source down this morning
@@ -210,25 +211,25 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
             entry["fetched_at"] = _ago(24)
         yesterday["nws_forecast"] = _forecast_entry(24)
         net = FakeNet(
-            {"https://api.": DEAD, "https://www.": DEAD, "https://raw.": DEAD},
+            {"https://api.": DEAD, "https://www.": DEAD, "https://raw.": DEAD, "https://mesonet.": DEAD},
             overrides={lastgood.URL: lastgood.dumps(yesterday).encode()},
         )
         b = Build(net)
         self.assertBuilt(b)
-        self.assertIn("every source failed this run. sections below are", b.html)
+        self.assertIn("every source failed this run. anything below is an", b.html)
         # look-ahead and slow-moving sections carry over, labelled
         for title, marker in (
             ("NWS FORECAST", "Next Period"),
             ("HF BANDS", "sfi 124"),
-            ("HV EMERGENCY ALERTS", "Test emergency item"),
         ):
             sec = self.section(b.html, title)
             self.assertIn(LABEL, sec, title)
             self.assertIn(marker, sec, title)
         # fast-moving ones don't
         for title in ("NWS ALERTS", "ERCOT", "GHOSTMAPS"):
-            self.assertIn(f"<b>{title}</b>\n\n[unavailable: ", b.html, title)
-        self.assertIn("[ai summary unavailable", b.html)
+            self.assertNotIn(f"<b>{title}</b>", b.html, title)
+        self.assertIn("nws alerts (", b.html)
+        self.assertIn("[summary unavailable", b.html)
 
     def test_previous_copy_unreachable_or_garbage(self):
         for name, result in (

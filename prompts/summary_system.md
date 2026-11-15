@@ -176,6 +176,9 @@ to today:
   do not get mentioned. note that this section is now scoped to the
   last 24 hours, so everything you see here is by definition recent.
 - hv emergency rss entries from the last 48 hours.
+- an spc convective outlook of slight (SLGT) or higher for day 1 or day 2
+  in SPC_OUTLOOK. marginal (MRGL) and general thunder (TSTM) are routine
+  and stay out.
 - a geomagnetic storm (k index 5 or higher) or an x-class x-ray flare in
   HF_PROPAGATION. jonathan is a ham, and either one degrades hf radio
   and can degrade gps. ordinary readings are not news.

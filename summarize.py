@@ -124,6 +124,13 @@ def _fmt_hf_bands(env: dict) -> str:
     return ", ".join(f"{k} {d[k]}" for k in keys if d.get(k)) or "no data"
 
 
+def _fmt_spc(env: dict) -> str:
+    if env["status"] != "ok":
+        return f"unavailable ({env['error']})"
+    d = env["data"] or {}
+    return ", ".join(f"day {n} {d.get(str(n)) or 'none'}" for n in (1, 2, 3))
+
+
 def _safe_fmt(fn, *args) -> str:
     try:
         return fn(*args)
@@ -157,6 +164,7 @@ def format_blob(sections: dict, now: datetime) -> str:
         f"HV_FIRE: {_section(_fmt_rss, sections['hv_rss'], 'fire')}\n"
         f"GHOSTMAPS_NEARBY: {_section(_fmt_ghostmaps, sections['ghostmaps'])}\n"
         f"HF_PROPAGATION: {_section(_fmt_hf_bands, sections['hf_bands'])}\n"
+        + (f"SPC_OUTLOOK: {_section(_fmt_spc, sections['spc'])}\n" if "spc" in sections else "")
     )
 
 

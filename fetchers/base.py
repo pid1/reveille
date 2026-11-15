@@ -104,6 +104,11 @@ def _request(
             body_excerpt = ""
         finally:
             e.close()
+        # an error page's html says nothing a reader can use, and it once
+        # filled the forecast section with a 500 page's <head>. keep the
+        # excerpt only when it is a short plain-text or json reason.
+        if "<html" in body_excerpt.lower() or "<!doctype" in body_excerpt.lower():
+            body_excerpt = "(html error page)"
         raise RuntimeError(f"HTTP {e.code} from {url}: {body_excerpt}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"network error fetching {url}: {e.reason}") from e

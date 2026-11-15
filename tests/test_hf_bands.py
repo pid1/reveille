@@ -68,9 +68,8 @@ class RenderTest(unittest.TestCase):
     def test_unavailable(self):
         from render import _render_hf_bands
 
-        text = _render_hf_bands(unavailable("RuntimeError: HTTP 503"))
-        self.assertIn("HF BANDS", text)
-        self.assertIn("[unavailable: RuntimeError: HTTP 503]", text)
+        # a failed source is named in the page's failed line, not here
+        self.assertEqual(_render_hf_bands(unavailable("RuntimeError: HTTP 503")), "")
 
 
 class SummaryBlobTest(unittest.TestCase):
