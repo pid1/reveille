@@ -10,16 +10,16 @@ and the poll-side backup for warning pushes. no llm.
 - active alerts (warnings in caps between stars, watches between single stars)
 - spc mesoscale discussions covering the point, spc day 1-3 and wpc excessive rain day 1-3
   (only when there is a risk), and the fort worth office's spotter statement
-- current conditions from the nearest airport (metar)
+- current conditions from the nearest airport, in words
 - the next 36 hours: hourly for 12, then every 3 hours, from the raw nws grid
-- 7 days, the forecast discussion's key messages, the dfw taf, sunrise and sunset
+- 7 days, the forecast discussion's key messages, sunrise and sunset
 
 the page is about 3 KB. `/full.txt` is the same page as plain text. there is no meta refresh,
 because a reload with no signal would wipe the copy you have.
 
 ## how it fails
 
-- each source fails on its own. the hourly and 7-day forecasts, discussion, taf and outlooks
+- each source fails on its own. the hourly and 7-day forecasts, discussion and outlooks
   fall back to their last good copy (6 to 24 hours), labelled with its time. alerts and
   current conditions never do: an old copy would read as current.
 - if the cron stops, the page says "refresh stopped at 14:10; this is that copy" once the copy

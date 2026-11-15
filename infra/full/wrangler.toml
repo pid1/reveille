@@ -28,7 +28,6 @@ custom_domain = true
 
 [vars]
 TZ = "America/Chicago"
-TAF_STATION = "KDFW"
 DAILY_URL = "https://reveille.pid1.space/"
 PUSH_MIN_PRIORITY = "0"
 MORNING_HOUR = "4"

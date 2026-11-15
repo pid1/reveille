@@ -16,7 +16,7 @@ const STUCK_MS = 25 * 60e3;
 
 // how long a copy may stand in for a failed fetch. alerts and current
 // conditions never carry over: an old copy of either reads as current.
-const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, taf: 6, spc: 12, ero: 12 };
+const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, spc: 12, ero: 12 };
 
 async function get(url, { json = true, timeout = 8000, headers = {} } = {}) {
   const r = await fetch(url, { headers: { "User-Agent": UA, Accept: json ? "application/geo+json, application/json" : "text/plain", ...headers }, signal: AbortSignal.timeout(timeout) });
@@ -74,11 +74,6 @@ async function gather(env, state, now) {
     grid: () => get(pts.grid),
     forecast: async () => (await get(pts.forecast)).properties.periods,
     afd: async () => (await get(`${NWS}/products/types/AFD/locations/${pts.office}/latest`)).productText,
-    taf: async () => {
-      const t = await get(`https://aviationweather.gov/api/data/taf?ids=${env.TAF_STATION || "KDFW"}&format=raw`, { json: false });
-      if (!/TAF/.test(t)) throw new Error("no taf");
-      return t;
-    },
     spc: () => iemDays(`${IEM}/spcoutlook.py?lat=${lat}&lon=${lon}&cat=categorical`, now),
     ero: () => iemDays(`${IEM}/wpcoutlook.py?lat=${lat}&lon=${lon}`, now),
     mcd: async () => {
@@ -110,7 +105,7 @@ async function gather(env, state, now) {
   return s;
 }
 
-const NAMES = { alerts: "nws alerts", obs: "current conditions", grid: "hourly forecast", forecast: "7-day forecast", afd: "forecast discussion", taf: "taf", spc: "spc outlook", ero: "excessive rain outlook", mcd: "mesoscale discussions" };
+const NAMES = { alerts: "nws alerts", obs: "current conditions", grid: "hourly forecast", forecast: "7-day forecast", afd: "forecast discussion", spc: "spc outlook", ero: "excessive rain outlook", mcd: "mesoscale discussions" };
 
 // -- pushes -------------------------------------------------------------------
 
