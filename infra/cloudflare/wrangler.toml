@@ -2,6 +2,11 @@ name = "reveille-trigger"
 main = "worker.js"
 compatibility_date = "2026-09-11"
 
+# no public url: only the service binding from reveille-full can reach it.
+# this has to sit above the first [table]; inside [triggers] wrangler
+# ignores it and publishes a workers.dev url (it did, 2026-11-15).
+workers_dev = false
+
 # No crons of its own since 2026-11-15. The account's free plan allows five
 # cron triggers and reveille-full needed one (Win's call: fold the morning
 # trigger into it rather than pay for Workers Paid). reveille-full's
@@ -10,9 +15,6 @@ compatibility_date = "2026-09-11"
 # build.yml is unchanged.
 [triggers]
 crons = []
-
-# no public url: only the service binding from reveille-full can reach it
-workers_dev = false
 
 [vars]
 TARGET_TZ = "America/Chicago"
