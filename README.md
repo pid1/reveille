@@ -137,7 +137,10 @@ briefing into a mid-morning one. so the crons in `build.yml` are a backstop,
 not the primary trigger.
 
 the primary trigger is a cloudflare worker in `infra/cloudflare/` that posts
-a workers builds deploy hook at 04:17 central. that starts a cloudflare build
+a workers builds deploy hook at 04:20 central. since 2026-11-15 it has no
+cron of its own: the account's free plan allows five cron triggers, so
+reveille-full's 10-minute cron calls it over a service binding on the run
+between 04:20 and 04:29 (win's call, instead of paying for workers paid). that starts a cloudflare build
 which renders the page and deploys it, so the whole primary path stays off
 github. the worker lives on cloudflare's edge rather than on a box at the
 house on purpose -- a local trigger would just trade github's unreliable

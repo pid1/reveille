@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { afdParts, dailyRows, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
-import { alertPushes, run } from "../src/index.js";
+import { alertPushes, morningRun, run } from "../src/index.js";
 import { renderText } from "../src/render.js";
 
 test("vtec keys match the nas listener's format", () => {
@@ -106,5 +106,14 @@ test("run() survives every source failing", async () => {
     assert.ok(page.html.length < 1500);
   } finally {
     globalThis.fetch = real;
+  }
+});
+
+test("exactly one 10-minute run a day starts the morning briefing, across dst", () => {
+  for (const day of ["2026-01-15", "2026-07-15", "2026-03-08", "2026-11-01"]) {
+    let hits = 0;
+    const start = Date.parse(`${day}T00:00:00Z`);
+    for (let t = start; t < start + 864e5; t += 600e3) if (morningRun({}, t)) hits++;
+    assert.equal(hits, 1, day);
   }
 });

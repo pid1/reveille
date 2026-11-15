@@ -16,6 +16,12 @@ crons = ["*/10 * * * *"]
 binding = "STORE"
 id = "b2424ee7509a4eccaef19ba71fd5e359"
 
+# the morning briefing's trigger. on the run between 04:20 and 04:29 local,
+# this worker asks reveille-trigger to post the workers builds deploy hook.
+[[services]]
+binding = "TRIGGER"
+service = "reveille-trigger"
+
 [[routes]]
 pattern = "full.reveille.pid1.space"
 custom_domain = true
@@ -25,6 +31,8 @@ TZ = "America/Chicago"
 TAF_STATION = "KDFW"
 DAILY_URL = "https://reveille.pid1.space/"
 PUSH_MIN_PRIORITY = "0"
+MORNING_HOUR = "4"
+MORNING_MINUTE = "20"
 
 [observability]
 enabled = true

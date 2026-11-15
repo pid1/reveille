@@ -219,8 +219,30 @@ nws text forecast: <a href="https://forecast.weather.gov/">forecast.weather.gov<
 
 const HEADERS = { "Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex" };
 
+// true on the one 10-minute run that should start the morning briefing
+export function morningRun(env, now) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: env.TZ || "America/Chicago", hourCycle: "h23", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(now));
+  const hour = +parts.find((p) => p.type === "hour").value;
+  const minute = +parts.find((p) => p.type === "minute").value;
+  const m0 = +(env.MORNING_MINUTE || 20);
+  return hour === +(env.MORNING_HOUR || 4) && minute >= m0 && minute < m0 + 10;
+}
+
+async function morning(env, now) {
+  if (!env.TRIGGER || !morningRun(env, now)) return;
+  try {
+    const r = await env.TRIGGER.fetch("https://reveille-trigger/dispatch", { method: "POST" });
+    console.log(`[full] morning briefing trigger: ${r.status}`);
+  } catch (e) {
+    console.log(`[full] morning briefing trigger failed: ${e.message}`);
+  }
+}
+
 export default {
   async scheduled(event, env, ctx) {
+    // the morning trigger goes first and on its own, so nothing in the page
+    // build can keep the briefing from starting
+    ctx.waitUntil(morning(env, event.scheduledTime || Date.now()));
     ctx.waitUntil(run(env).then((r) => console.log(`[full] wrote ${r.bytes} bytes; failed: ${r.failed.join(", ") || "none"}`)));
   },
 
