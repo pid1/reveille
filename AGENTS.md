@@ -11,10 +11,16 @@
 - `npm ci --prefix .github/wrangler`, then `npm exec --prefix .github/wrangler --no-install -- wrangler deploy --dry-run` at the repo root after the build and in `infra/cloudflare/`, checks both fallback deploy configs without deploying.
 - Never run `wrangler deploy` without `--dry-run`, or `scripts/trigger-build.sh`. Both start a production deploy.
 
+- `uv run python -m unittest` runs the page tests with no network.
+- `node --test infra/full/test/` tests the reveille-full Worker. `npm exec --prefix .github/wrangler --no-install -- wrangler deploy --dry-run` in `infra/full/` checks its config.
+- In `listener/`: `uv sync --locked`, then `uv run python -m unittest discover -s tests`. Never run the listener against NWWS-OI anywhere but the NAS: the account allows one connection. Use `python -m nwws_listener replay <files>` instead.
+
 ### Toolchain
 - uv manages the Python project. `pyproject.toml` sets `exclude-newer = "7 days"` under `[tool.uv]`, and `uv.lock` is committed.
 - uv installs a managed CPython for the `3.15` in `.python-version`. The uv release decides the patch version: uv 0.13.5 installs 3.15.1, and uv 0.13.7 installs 3.15.2.
 
 ### Deploys outside CI
+- `.github/workflows/full.yml` deploys the `reveille-full` Worker from `infra/full/` on pushes to main, and copies HV_LAT, HV_LON and the Pushover keys into its secrets.
+- `.github/workflows/listener.yml` publishes `ghcr.io/pid1/reveille-listener`; the Unraid NAS runs it from `listener/unraid/my-reveille-listener.xml`.
 - Cloudflare Workers Builds builds and deploys the `reveille` Worker on every push to main and on the deploy hook. The README gives the build command as `uv sync --frozen && uv run python build.py` and the deploy command as `npx wrangler deploy`. Cloudflare's own uv and npm run them, at versions set in the Cloudflare dashboard.
 - Cloudflare Workers Builds deploys the `reveille-trigger` Worker from root directory `/infra/cloudflare`. docs/scheduling.md gives the deploy command as `npx wrangler deploy --tag "$WORKERS_CI_COMMIT_SHA"`.

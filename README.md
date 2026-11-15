@@ -6,10 +6,25 @@ a plaintext daily morning briefing for highland village, tx. one static html pag
 
 - nws active alerts (ozone action days filtered out) and 3-day forecast for highland village
 - ercot grid status
-- highland village emergency, police, and fire rss feeds (most recent 14 days)
+- highland village emergency, police, and fire rss feeds, read by the summary and linked when
+  something was posted in the last two days (no longer listed on the page)
+- spc convective outlook days 1-3, one line, only when there is a risk
+- what started and ended since yesterday's alerts
 - geolocated incidents from s2 underground's ghostmaps common intelligence picture, filtered to within 25 miles and the last 24 hours
 - hf band conditions: solar flux, sunspots, a/k index, x-ray and n0nbh's calculated day/night conditions per band group, from [hamqsl.com](https://www.hamqsl.com/solar.html) (credited and linked on the page, as n0nbh asks; fetched once per build, well inside the hourly limit)
 - short ai-generated summary at the top (claude sonnet 5.5), with graceful fallback to raw data if the summary call fails
+
+## the other two pieces
+
+- **[full.reveille.pid1.space](https://full.reveille.pid1.space/)**, the full page: current
+  conditions, an hourly table, 7 days, spc and wpc risk and the forecast discussion's key
+  messages, rebuilt every 10 minutes by its own worker with no llm. see
+  [infra/full/README.md](infra/full/README.md). the daily page links it on its second line.
+- **the nas listener**, an nwws-oi client on the unraid nas that pushes warnings for the house
+  within seconds. the full page's worker is its backup. see [listener/README.md](listener/README.md).
+
+a source that fails is named once, with a short reason, in a `failed:` line under the timestamp
+on either page. its section is left out, or replaced by its labelled last good copy.
 
 ## why minimal data transfer matters
 

@@ -1,0 +1,64 @@
+name: full page worker
+
+# tests reveille-full on every pull request that touches it, and deploys it
+# on every push to main that does. the worker's location and pushover
+# secrets are copied from this repo's own secrets on each deploy, so they
+# are set in one place. SEEN_TOKEN and HEALTHCHECK_URL are set by hand
+# (wrangler secret put) and survive deploys. see infra/full/README.md.
+
+on:
+  pull_request:
+    paths: ["infra/full/**", ".github/workflows/full.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/full/**", ".github/workflows/full.yml"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: full-deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node --test infra/full/test/
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: npm ci --prefix .github/wrangler
+      - name: Deploy
+        working-directory: infra/full
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm exec --prefix ../../.github/wrangler --no-install -- wrangler deploy --tag "${GITHUB_SHA}"
+      - name: Copy secrets
+        working-directory: infra/full
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          HOME_LAT: ${{ secrets.HV_LAT }}
+          HOME_LON: ${{ secrets.HV_LON }}
+          PUSHOVER_API_KEY: ${{ secrets.PUSHOVER_API_KEY }}
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+        run: |
+          # jq builds the json from the environment, so no value is echoed
+          # or written to disk
+          jq -n 'env | {HOME_LAT, HOME_LON, PUSHOVER_API_KEY, PUSHOVER_USER_KEY}' \
+            | npm exec --prefix ../../.github/wrangler --no-install -- wrangler secret bulk
