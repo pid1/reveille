@@ -19,6 +19,7 @@ from html import escape as h
 from typing import Any
 
 from config import CITY
+from fetchers.base import truncate as _truncate
 
 COL = 48  # target line width for plaintext wrap. tuned so output of _wrap()
 # fits a typical mobile viewport (~360-430px) at the browser-default
@@ -51,7 +52,9 @@ def _rule(title: str) -> str:
 
 
 def _unavail_line(env: dict) -> str:
-    return f"[unavailable: {env.get('error') or 'unknown'}]"
+    # errors can carry 500 chars of an upstream error page. the build log
+    # has the whole thing; the page only needs enough to say what broke.
+    return f"[unavailable: {_truncate(env.get('error') or 'unknown', 160)}]"
 
 
 def _wrap(text: str, indent: str = "  ", width: int = COL) -> str:
@@ -245,6 +248,9 @@ def _render_ghostmaps(env: dict) -> str:
 def _render_rss_section(title: str, env: dict, key: str) -> str:
     if env["status"] != "ok":
         return "\n".join([_rule(title), _unavail_line(env)])
+    err = ((env["data"] or {}).get("errors") or {}).get(key)
+    if err:
+        return "\n".join([_rule(title), _unavail_line({"error": err})])
     items = (env["data"] or {}).get(key) or []
     if not items:
         # hide the section entirely. an empty 14-day feed is the routine
@@ -262,6 +268,40 @@ def _render_rss_section(title: str, env: dict, key: str) -> str:
             out.append(f"  link: {e['link']}")
         if e.get("summary"):
             out.append(_wrap(e["summary"]))
+    return "\n".join(out)
+
+
+# -- hf bands ---------------------------------------------------------------
+
+
+def _render_hf_bands(env: dict) -> str:
+    """indices on two lines, then a band x day/night grid. always shown:
+    unlike the hazard sections there is no 'normal' state to hide on, and
+    the reader looks for it every morning.
+    """
+    from fetchers.hf_bands import BANDS, CREDIT_URL
+
+    out = [_rule("HF BANDS")]
+    if env["status"] != "ok":
+        out.append(_unavail_line(env))
+        return "\n".join(out)
+    d = env["data"] or {}
+
+    def pairs(*keys: str) -> str:
+        return "  ".join(f"{k} {d[k]}" for k in keys if d.get(k))
+
+    for line in (pairs("sfi", "ssn", "a", "k", "xray"), pairs("geomag", "noise")):
+        if line:
+            out.append(f"  {line}")
+    cond = d.get("conditions") or {}
+    header = " ".join(f"{b.replace('m', ''):<5}" for b in BANDS)
+    out.append(f"        {header}".rstrip())
+    for time in ("day", "night"):
+        row = cond.get(time) or {}
+        cells = " ".join(f"{row.get(b) or '-':<5}" for b in BANDS)
+        out.append(f"  {time:<5} {cells}".rstrip())
+    # n0nbh asks for credit; _linkify turns the url into a hamqsl.com link.
+    out.append(f"  N0NBH {CREDIT_URL}")
     return "\n".join(out)
 
 
@@ -296,7 +336,8 @@ def _linkify(text: str) -> str:
         url = m.group(1)
         trailing = ""
         # peel back trailing punctuation that's usually sentence punctuation
-        while url and url[-1] in ".,);]":
+        # (':' too: error notices read "fetching <url>: <reason>")
+        while url and url[-1] in ".,);]:":
             trailing = url[-1] + trailing
             url = url[:-1]
         # derive a short display label from the hostname. fall back to the
@@ -319,7 +360,42 @@ def _linkify(text: str) -> str:
     return linked.replace(_B_OPEN, "<b>").replace(_B_CLOSE, "</b>")
 
 
+# -- last good copies -------------------------------------------------------
+
+
+def _mark_stale(title: str, text: str, stale_from: str) -> str:
+    """label a section rendered from the previous build's copy. a copy is
+    never hidden as a quiet day: the reader needs to see that today's fetch
+    failed even when the copy had nothing to show.
+    """
+    try:
+        when = datetime.fromisoformat(stale_from).strftime("%a %H:%M")
+    except TypeError, ValueError:
+        when = "an earlier build"
+    label = f"[fetch failed; showing copy from {when}]"
+    header = _rule(title)
+    if not text:
+        return f"{header}\n{label}\n  nothing to report in that copy"
+    return f"{header}\n{label}{text[len(header):]}"
+
+
+def _failed_today(env: dict) -> bool:
+    return env.get("status") != "ok" or bool(env.get("today_error"))
+
+
 # -- top-level --------------------------------------------------------------
+
+
+def _guard(title: str, fn, *args) -> str:
+    """render one section; if a bad value got past its fetcher and the
+    renderer chokes on it, that section says so and the page still builds.
+    """
+    try:
+        return fn(*args)
+    except Exception as e:
+        print(f"[render] {title} failed: {type(e).__name__}: {e}", flush=True)
+        notice = _unavail_line({"error": f"render failed: {type(e).__name__}"})
+        return "\n".join([_rule(title), notice])
 
 
 def _header_block(now: datetime) -> str:
@@ -346,17 +422,40 @@ def render_page(
     # ok-and-empty and the policy is to hide it. errors always produce a
     # rendered section so silent failures are not possible. filter empties
     # before joining so we don't end up with double blank lines.
-    rendered = [
-        _header_block(now),
-        _render_summary(summary),
-        _render_nws_alerts(sections["nws_alerts"]),
-        _render_nws_forecast(sections["nws_forecast"]),
-        _render_ercot(sections["ercot"]),
-        _render_ghostmaps(sections["ghostmaps"]),
-        _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
-        _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
-        _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
+    rss = sections["hv_rss"]
+    rss_stale = (rss.get("data") or {}).get("stale") or {} if rss["status"] == "ok" else {}
+    # (title, renderer, args, when the last good copy is from if this is one)
+    parts = [
+        ("NWS ALERTS", _render_nws_alerts, (sections["nws_alerts"],)),
+        ("NWS FORECAST", _render_nws_forecast, (sections["nws_forecast"],)),
+        ("ERCOT", _render_ercot, (sections["ercot"],)),
+        ("GHOSTMAPS", _render_ghostmaps, (sections["ghostmaps"],)),
+        *(
+            (title, _render_rss_section, (title, rss, key))
+            for title, key in (
+                ("HV EMERGENCY ALERTS", "emergency"),
+                ("HV POLICE", "police"),
+                ("HV FIRE DEPT", "fire"),
+            )
+        ),
+        ("HF BANDS", _render_hf_bands, (sections["hf_bands"],)),
     ]
+    rendered = [_header_block(now), _guard("BLUF", _render_summary, summary)]
+    for title, fn, args in parts:
+        text = _guard(title, fn, *args)
+        env = args[0] if fn is not _render_rss_section else None
+        stale_from = env.get("stale_from") if env else rss_stale.get(args[2])
+        if stale_from:
+            text = _mark_stale(title, text, stale_from)
+        rendered.append(text)
+    if all(_failed_today(env) for env in sections.values()):
+        # every section below is unavailable or an older copy; say it once up
+        # top too, so a reader on a bad link doesn't take any of it as current.
+        rendered.insert(
+            1,
+            "\nevery source failed this run. sections below are"
+            "\nolder copies or unavailable.",
+        )
     text = "\n".join(s for s in rendered if s)
 
     body = _linkify(text)

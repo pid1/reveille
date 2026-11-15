@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html as html_module
 import json
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -19,6 +20,11 @@ from typing import Any
 from config import TIMEZONE
 
 DEFAULT_TIMEOUT = 30.0
+# `timeout` is the socket timeout, which bounds each blocking call, not the
+# whole response: a server that trickles a byte every few seconds never trips
+# it. reading the body is capped at this many timeouts in total.
+_DEADLINE_FACTOR = 4
+_CHUNK = 64 * 1024
 USER_AGENT = "reveille (github.com/pid1/reveille)"
 
 
@@ -82,12 +88,22 @@ def _request(
         # The scheme check above limits the URL to https, so file:// cannot reach here.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read()
+            deadline = time.monotonic() + timeout * _DEADLINE_FACTOR
+            chunks = []
+            while chunk := resp.read(_CHUNK):
+                chunks.append(chunk)
+                if time.monotonic() > deadline:
+                    raise RuntimeError(
+                        f"deadline of {timeout * _DEADLINE_FACTOR:.0f}s passed reading {url}"
+                    )
+            return b"".join(chunks)
     except urllib.error.HTTPError as e:
         try:
             body_excerpt = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             body_excerpt = ""
+        finally:
+            e.close()
         raise RuntimeError(f"HTTP {e.code} from {url}: {body_excerpt}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"network error fetching {url}: {e.reason}") from e

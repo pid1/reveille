@@ -39,6 +39,11 @@ def _entries_from(url: str) -> list[dict]:
     # a cloudflare build on this step. a failure now raises and marks the
     # section unavailable instead of silently reading as "no entries".
     fp = feedparser.parse(get_bytes(url))
+    # feedparser reads an html error page or a captive portal served as 200
+    # as an empty feed, which would hide the section as a quiet day. a real
+    # feed, even an empty one, always has a detected version.
+    if not fp.version:
+        raise RuntimeError(f"not an rss or atom feed: {url}")
     # cutoff at midnight `MAX_AGE_DAYS` ago, not now - 14d (which half-clips
     # by current-time-of-day)
     today_midnight = datetime.now(TIMEZONE).replace(
@@ -68,4 +73,19 @@ def _entries_from(url: str) -> list[dict]:
 
 
 def fetch() -> dict:
-    return {name: _entries_from(url) for name, url in FEEDS.items()}
+    """one failing feed marks only that feed unavailable, under "errors".
+    the section as a whole is unavailable only when all three fail.
+    """
+    out: dict = {}
+    errors: dict[str, str] = {}
+    for name, url in FEEDS.items():
+        try:
+            out[name] = _entries_from(url)
+        except Exception as e:
+            out[name] = []
+            errors[name] = f"{type(e).__name__}: {e}"
+    if len(errors) == len(FEEDS):
+        raise RuntimeError(f"all hv feeds failed; {errors['emergency']}")
+    if errors:
+        out["errors"] = errors
+    return out
