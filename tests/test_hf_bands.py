@@ -41,29 +41,34 @@ class ParseTest(unittest.TestCase):
 
 class RenderTest(unittest.TestCase):
     def test_render(self):
-        from render import _linkify, _render_hf_bands
+        from render import _render_hf_bands
 
         text = _render_hf_bands(ok(hf_bands.parse(SAMPLE)))
+        # the grid only: no indices, no credit line, no vhf line when closed
         self.assertEqual(
             text,
             "\n[[B]]HF BANDS[[/B]]\n\n"
-            "  sfi 124  ssn 109  a 6  k 2  xray B8.7\n"
-            "  geomag quiet  noise s1-s2\n"
-            "        80-40 30-20 17-15 12-10\n"
-            "  day   fair  good  fair  fair\n"
-            "  night good  good  fair  poor\n"
-            "  N0NBH https://www.hamqsl.com/",
+            "      80-40 30-20 17-15 12-10\n"
+            "day   fair  good  fair  fair\n"
+            "night good  good  fair  poor",
         )
-        # every line fits the page's mobile width
         self.assertTrue(all(len(line) <= 48 for line in text.splitlines()))
-        self.assertIn('N0NBH <a href="https://www.hamqsl.com/">hamqsl.com</a>', _linkify(text))
+
+    def test_vhf_line_only_when_open(self):
+        from render import _render_hf_bands
+
+        d = hf_bands.parse(SAMPLE)
+        d["vhf"] = {"e-skip": "band closed", "aurora": "band closed"}
+        self.assertNotIn("vhf", _render_hf_bands(ok(d)))
+        d["vhf"]["e-skip"] = "50mhz es"
+        self.assertTrue(_render_hf_bands(ok(d)).endswith("vhf   e-skip 50mhz es"))
 
     def test_missing_band_shows_dash(self):
         from render import _render_hf_bands
 
         d = hf_bands.parse(SAMPLE)
         del d["conditions"]["night"]["12m-10m"]
-        self.assertIn("  night good  good  fair  -", _render_hf_bands(ok(d)))
+        self.assertIn("night good  good  fair  -", _render_hf_bands(ok(d)))
 
     def test_unavailable(self):
         from render import _render_hf_bands

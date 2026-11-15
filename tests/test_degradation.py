@@ -149,7 +149,7 @@ SECTIONS = {
     "nws_forecast": ("NWS FORECAST", "Test Forecast Text", "nws forecast ("),
     "ercot": ("ERCOT", "45,000 MW", "ercot ("),
     "ghostmaps": ("GHOSTMAPS", "Test Incident", "ghostmaps ("),
-    "hf_bands": ("HF BANDS", "sfi 124", "hf bands ("),
+    "hf_bands": ("HF BANDS", "day   fair  good", "hf bands ("),
     # the city feeds are only a link now; spc is one line
     "rss_emergency": (None, None, "city emergency feed ("),
     "rss_police": (None, None, "city police feed ("),
@@ -314,7 +314,7 @@ class DegradationTest(PageAsserts, unittest.TestCase):
         self.assertNotIn("failed: ", b.html)
         self.assertIn("city news: 3 posts in 2 days", b.html)
         self.assertNotIn("Test police item", b.html)
-        self.assertIn("full.reveille.pid1.space", b.html)
+        self.assertNotIn("full.reveille.pid1.space", b.html)
         self.assertIn(BLUF, b.html)
         for key in SECTIONS:
             self.assertSectionOk(b, key)

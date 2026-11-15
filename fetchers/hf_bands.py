@@ -51,6 +51,16 @@ def parse(xml_bytes: bytes) -> dict:
     if not conditions["day"] and not conditions["night"]:
         raise RuntimeError("no band conditions in hamqsl response")
 
+    # vhf: north american e-skip and northern-hemisphere aurora are the only
+    # entries that apply here. the feed has nothing below 80m.
+    vhf: dict[str, str] = {}
+    for ph in sd.iterfind("calculatedvhfconditions/phenomenon"):
+        key = {("E-Skip", "north_america"): "e-skip", ("vhf-aurora", "northern_hemi"): "aurora"}.get(
+            (ph.get("name"), ph.get("location"))
+        )
+        if key and ph.text:
+            vhf[key] = ph.text.strip().lower()[:_MAX_VALUE]
+
     return {
         "sfi": text("solarflux"),
         "ssn": text("sunspots"),
@@ -60,6 +70,7 @@ def parse(xml_bytes: bytes) -> dict:
         "geomag": text("geomagfield").lower(),
         "noise": text("signalnoise").lower(),
         "conditions": conditions,
+        "vhf": vhf,
     }
 
 

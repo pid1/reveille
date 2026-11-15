@@ -239,43 +239,32 @@ def _render_ghostmaps(env: dict) -> str:
 
 
 def _render_hf_bands(env: dict) -> str:
-    """indices on two lines, then a band x day/night grid. always shown:
-    unlike the hazard sections there is no 'normal' state to hide on, and
-    the reader looks for it every morning.
+    """the band x day/night grid, and a vhf line only when something is open.
+    the indices go to the summary, not the page; the credit to n0nbh lives
+    in fetchers/hf_bands.py and the readme. always shown: the reader looks
+    for it every morning.
     """
-    from fetchers.hf_bands import BANDS, CREDIT_URL
+    from fetchers.hf_bands import BANDS
 
     if env["status"] != "ok":
         return ""  # named in the failed line at the top
-    out = [_rule("HF BANDS")]
     d = env["data"] or {}
-
-    def pairs(*keys: str) -> str:
-        return "  ".join(f"{k} {d[k]}" for k in keys if d.get(k))
-
-    for line in (pairs("sfi", "ssn", "a", "k", "xray"), pairs("geomag", "noise")):
-        if line:
-            out.append(f"  {line}")
     cond = d.get("conditions") or {}
     header = " ".join(f"{b.replace('m', ''):<5}" for b in BANDS)
-    out.append(f"        {header}".rstrip())
+    out = [_rule("HF BANDS"), f"      {header}".rstrip()]
     for time in ("day", "night"):
         row = cond.get(time) or {}
         cells = " ".join(f"{row.get(b) or '-':<5}" for b in BANDS)
-        out.append(f"  {time:<5} {cells}".rstrip())
-    # n0nbh asks for credit; _linkify turns the url into a hamqsl.com link.
-    out.append(f"  N0NBH {CREDIT_URL}")
+        out.append(f"{time:<5} {cells}".rstrip())
+    open_ = [f"{k} {v}" for k, v in (d.get("vhf") or {}).items() if v and "closed" not in v]
+    if open_:
+        out.append("vhf   " + ", ".join(open_))
     return "\n".join(out)
 
 
 # -- spc, changes, city news, source status ----------------------------------
 
-FULL_URL = "https://full.reveille.pid1.space/"
 CITY_NEWS_URL = "https://www.highlandvillage.org/CivicAlerts.aspx"
-
-
-def _full_url() -> str:
-    return os.environ.get("REVEILLE_FULL_URL", "").strip() or FULL_URL
 
 
 def _render_spc(env: dict) -> str:
@@ -374,7 +363,8 @@ def _render_failed(sections: dict, summary: dict | None = None) -> str:
         data = rss.get("data") or {}
         for f in feeds:
             if f in (data.get("stale") or {}):
-                bad.append(f"city {f} feed (older copy used)")
+                why = short_reason((rss.get("today_errors") or {}).get(f) or rss.get("today_error"))
+                bad.append(f"city {f} feed ({why}, older copy used)")
             elif f in (data.get("errors") or {}):
                 bad.append(f"city {f} feed ({short_reason(data['errors'][f])})")
     bad += [f"{t} (display error)" for t in _RENDER_FAILED]
@@ -485,9 +475,7 @@ def _header_block(now: datetime) -> str:
     # given the page url, the page title, and the timestamp's position at
     # the top of the page. the bare timestamp earns its keep because the
     # page is a morning briefing; how stale the data is matters.
-    # the second line links the full page: hourly forecast, current
-    # conditions and spc detail, refreshed every 10 minutes.
-    return now.strftime("%Y-%m-%d %H:%M %Z") + f"\nfull forecast: {_full_url()}"
+    return now.strftime("%Y-%m-%d %H:%M %Z")
 
 
 def render_text(
