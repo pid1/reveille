@@ -140,7 +140,7 @@ function afdBlock(entry, office, tz) {
 export function renderText(s, env, now) {
   const tz = env.TZ || "America/Chicago";
   const date = fmt(now, tz, { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2");
-  const head = [`reveille full -- ${date} ${hhmm(now, tz)} ${fmt(now, tz, { timeZoneName: "short" }).split(" ").pop().toLowerCase()}`, `daily briefing: ${env.DAILY_URL || "https://reveille.pid1.space/"}`];
+  const head = [`reveille full -- ${date} ${hhmm(now, tz)} ${fmt(now, tz, { timeZoneName: "short" }).split(" ").pop().toLowerCase()}`];
   if (s.failed && s.failed.length) head.push("failed: " + s.failed.join(", "));
 
   const parts = [head.join("\n")];
