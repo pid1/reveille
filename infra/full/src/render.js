@@ -137,6 +137,15 @@ function afdBlock(entry, office, tz) {
   };
 }
 
+// the spotter statement is shown only when it says something other than the
+// normal state. like every other line here: never show the normal (win,
+// 2026-11-15). fort worth's quiet wording is "spotter activation is not
+// expected at this time."
+export function spotterMatters(text) {
+  if (!text) return false;
+  return !/\b(not|no longer)\s+(be\s+)?(expected|anticipated|needed|requested|likely)\b|\bunlikely\b|\bno spotter activation\b/i.test(text);
+}
+
 export function renderText(s, env, now) {
   const tz = env.TZ || "America/Chicago";
   const date = fmt(now, tz, { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2");
@@ -154,7 +163,7 @@ export function renderText(s, env, now) {
   const afd = afdBlock(s.afd, s.office || "FWD", tz);
   if (spc) risk.push(spc);
   if (ero) risk.push(ero);
-  if (afd.spotter) risk.push(wrap(`spotter: ${afd.spotter.toLowerCase().replace(/^spotter /, "")}`, "", 46).replace(/\n/g, "\n  "));
+  if (spotterMatters(afd.spotter)) risk.push(wrap(`spotter: ${afd.spotter.toLowerCase().replace(/^spotter /, "")}`, "", 46).replace(/\n/g, "\n  "));
   if (risk.length) parts.push("\n" + risk.join("\n"));
   parts.push(obsBlock(s.obs && s.obs.data, tz));
   parts.push(hourlyBlock(s.grid, now, tz));
