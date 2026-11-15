@@ -198,7 +198,7 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
         b = Build(_net({"hv_rss.police": entry}, {hv_rss.FEEDS["police"]: DEAD}))
         # the feeds aren't listed on the page any more; the status line says
         # which one failed, and the summary still gets the copy
-        self.assertIn("city police feed (older copy used)", b.html)
+        self.assertIn("city police feed (network, older copy used)", b.html)
         self.assertSectionOk(b, "rss_emergency")
         self.assertSectionOk(b, "rss_fire")
         self.assertIn("HV_POLICE: (today's fetch failed; copy from ", b.prompt)
@@ -220,7 +220,7 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
         # look-ahead and slow-moving sections carry over, labelled
         for title, marker in (
             ("NWS FORECAST", "Next Period"),
-            ("HF BANDS", "sfi 124"),
+            ("HF BANDS", "day   fair  good"),
         ):
             sec = self.section(b.html, title)
             self.assertIn(LABEL, sec, title)

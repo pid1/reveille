@@ -154,6 +154,7 @@ def _apply_rss(sections: dict, previous: dict, now: datetime, store: dict) -> No
         data = {name: [] for name in _FEEDS}
         errors = {name: env["error"] for name in _FEEDS}
     stale: dict[str, str] = {}
+    stale_errors: dict[str, str] = {}  # why each copied feed failed today
     for name in _FEEDS:
         key = f"hv_rss.{name}"
         if name not in errors:
@@ -163,13 +164,14 @@ def _apply_rss(sections: dict, previous: dict, now: datetime, store: dict) -> No
         if _age_ok(entry, "hv_rss", now) and isinstance(entry["data"], list):
             data[name] = entry["data"]
             stale[name] = entry["fetched_at"]
-            del errors[name]
+            stale_errors[name] = errors.pop(name)
             store[key] = entry
     if not stale:
         return
     data["errors"] = errors
     data["stale"] = stale
     new = ok(data)
+    new["today_errors"] = stale_errors
     if env["status"] != "ok":
         new["today_error"] = env["error"]
     sections["hv_rss"] = new
