@@ -13,7 +13,10 @@ and the poll-side backup for warning pushes. no llm.
   activation is possible or under way)
 - current conditions from the nearest airport, in words
 - the next 36 hours: hourly for 12, then every 3 hours, from the raw nws grid
-- 7 days, the forecast discussion's key messages, sunrise and sunset
+- sunrise and sunset under current conditions
+- 7 days and the forecast discussion's key messages
+- hf band conditions last: the day/night grid from n0nbh's hamqsl.com feed (credit here, not on
+  the page), fetched at most once an hour as n0nbh asks, plus a vhf line when e-skip or aurora is open
 
 the page is about 3 KB. `/full.txt` is the same page as plain text. there is no meta refresh,
 because a reload with no signal would wipe the copy you have.

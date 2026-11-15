@@ -1,7 +1,7 @@
 // the full page as plain text, then as html. same look as the daily page:
 // one <pre>, bold section names, links shown as their hostname.
 
-import { afdParts, compass, dailyRows, hourlyRows, sunTimes } from "./parse.js";
+import { afdParts, compass, dailyRows, HF_BANDS, hourlyRows, sunTimes } from "./parse.js";
 
 const pad = (s, n) => String(s ?? "").padEnd(n);
 const lpad = (s, n) => String(s ?? "").padStart(n);
@@ -141,6 +141,22 @@ function afdBlock(entry, office, tz) {
 // normal state. like every other line here: never show the normal (win,
 // 2026-11-15). fort worth's quiet wording is "spotter activation is not
 // expected at this time."
+// the band grid, and a vhf line only when e-skip or aurora is open. no
+// indices and no credit line: bytes matter here, the credit is in the readme.
+function bandsBlock(entry, tz) {
+  if (!entry) return "";
+  const d = entry.data || {};
+  const header = HF_BANDS.map((b) => pad(b.replace(/m/g, ""), 5)).join(" ");
+  const out = [rule("HF BANDS"), staleLabel(entry, tz) + `      ${header}`.trimEnd()];
+  for (const t of ["day", "night"]) {
+    const row = (d.conditions || {})[t] || {};
+    out.push(`${pad(t, 5)} ${HF_BANDS.map((b) => pad(row[b] || "-", 5)).join(" ")}`.trimEnd());
+  }
+  const open = Object.entries(d.vhf || {}).filter(([, v]) => v && !/closed/.test(v));
+  if (open.length) out.push("vhf   " + open.map(([k, v]) => `${k} ${v}`).join(", "));
+  return out.join("\n");
+}
+
 export function spotterMatters(text) {
   if (!text) return false;
   return !/\b(not|no longer)\s+(be\s+)?(expected|anticipated|needed|requested|likely)\b|\bunlikely\b|\bno spotter activation\b/i.test(text);
@@ -165,14 +181,19 @@ export function renderText(s, env, now) {
   if (ero) risk.push(ero);
   if (spotterMatters(afd.spotter)) risk.push(wrap(`spotter: ${afd.spotter.toLowerCase().replace(/^spotter /, "")}`, "", 46).replace(/\n/g, "\n  "));
   if (risk.length) parts.push("\n" + risk.join("\n"));
-  parts.push(obsBlock(s.obs && s.obs.data, tz));
+  // sunrise and sunset sit under current conditions (or alone, if those
+  // failed), before the hourly table
+  let sun = "";
+  if (s.lat != null) {
+    const t = sunTimes(s.lat, s.lon, new Date(now));
+    sun = `sun  rise ${hhmm(t.rise, tz)}  set ${hhmm(t.set, tz)}`;
+  }
+  const obs = obsBlock(s.obs && s.obs.data, tz);
+  parts.push(obs ? obs + (sun ? "\n" + sun : "") : sun ? "\n" + sun : "");
   parts.push(hourlyBlock(s.grid, now, tz));
   parts.push(dailyBlock(s.forecast, now, tz));
   parts.push(afd.block);
-  if (s.lat != null) {
-    const sun = sunTimes(s.lat, s.lon, new Date(now));
-    parts.push(`\nsun  rise ${hhmm(sun.rise, tz)}  set ${hhmm(sun.set, tz)}`);
-  }
+  parts.push(bandsBlock(s.hf, tz));
   return parts.filter(Boolean).join("\n") + "\n";
 }
 

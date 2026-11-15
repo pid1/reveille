@@ -1,7 +1,7 @@
 // node --test infra/full/test/*.test.js
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { afdParts, dailyRows, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
+import { afdParts, dailyRows, parseHamqsl, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
 import { alertPushes, morningRun, run } from "../src/index.js";
 import { renderText, spotterMatters, weatherWords } from "../src/render.js";
 
@@ -138,4 +138,16 @@ test("the spotter line shows only when activation is possible or happening", () 
   assert.equal(spotterMatters("Spotter activation may be requested this afternoon and evening."), true);
   assert.equal(spotterMatters("Spotter activation is likely tonight."), true);
   assert.equal(spotterMatters("Spotters are currently activated."), true);
+});
+
+const HAMQSL = `<solar><solardata><calculatedconditions><band name="80m-40m" time="day">Fair</band><band name="30m-20m" time="day">Good</band><band name="17m-15m" time="day">Fair</band><band name="12m-10m" time="day">Fair</band><band name="80m-40m" time="night">Good</band><band name="30m-20m" time="night">Good</band><band name="17m-15m" time="night">Fair</band><band name="12m-10m" time="night">Poor</band></calculatedconditions><calculatedvhfconditions><phenomenon name="vhf-aurora" location="northern_hemi">Band Closed</phenomenon><phenomenon name="E-Skip" location="north_america">50MHz ES</phenomenon><phenomenon name="E-Skip" location="europe">Band Closed</phenomenon></calculatedvhfconditions></solardata></solar>`;
+
+test("hf bands at the bottom, sun under now", () => {
+  const hf = parseHamqsl(HAMQSL);
+  assert.equal(hf.conditions.night["12m-10m"], "poor");
+  const obs = { icaoId: "KDTO", name: "Denton Muni, TX", obsTime: 1794775980, temp: 7.8, dewp: 5.6, wdir: 70, wspd: 8, visib: 7, clouds: [] };
+  const text = renderText({ obs: { data: obs }, hf: { data: hf, at: 0 }, lat: 33.0, lon: -97.0, failed: [] }, {}, 1794776000000);
+  const lines = text.trimEnd().split("\n");
+  assert.deepEqual(lines.slice(-4), ["      80-40 30-20 17-15 12-10", "day   fair  good  fair  fair", "night good  good  fair  poor", "vhf   e-skip 50mhz es"]);
+  assert.match(text, /\(denton muni, 14:53\)\nsun  rise \d\d:\d\d  set \d\d:\d\d\n/);
 });
