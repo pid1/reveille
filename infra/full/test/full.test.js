@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { afdParts, dailyRows, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
 import { alertPushes, morningRun, run } from "../src/index.js";
-import { renderText } from "../src/render.js";
+import { renderText, weatherWords } from "../src/render.js";
 
 test("vtec keys match the nas listener's format", () => {
   assert.deepEqual(vtecKey("/O.NEW.KFWD.TO.W.0028.260619T0923Z-260619T1015Z/").key, "2026.KFWD.TO.W.0028");
@@ -116,4 +116,16 @@ test("exactly one 10-minute run a day starts the morning briefing, across dst", 
     for (let t = start; t < start + 864e5; t += 600e3) if (morningRun({}, t)) hits++;
     assert.equal(hits, 1, day);
   }
+});
+
+test("current conditions read as words, with no raw metar", () => {
+  assert.equal(weatherWords("-RA BR"), "light rain, mist");
+  assert.equal(weatherWords("+TSRA"), "heavy thunderstorm, rain");
+  const obs = { icaoId: "KDTO", name: "Denton Enterprise Airport, TX, US", obsTime: 1794775980, temp: 7.8, dewp: 5.6, wdir: 70, wspd: 8, wgst: 19, visib: 7, wxString: "-RA", clouds: [{ cover: "OVC", base: 1000 }], rawOb: "METAR KDTO 152053Z 07008G19KT" };
+  const text = renderText({ obs: { data: obs }, failed: [] }, {}, 1794776000000);
+  assert.match(text, /^46f, dew point 42f$/m);
+  assert.match(text, /^wind ene 9 mph, gusts 22$/m);
+  assert.match(text, /^light rain, overcast at 1,000 ft, 7 mi visibility$/m);
+  assert.match(text, /^\(denton enterprise airport, 14:53\)$/m);
+  assert.doesNotMatch(text, /METAR|TAF/);
 });

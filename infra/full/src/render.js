@@ -53,14 +53,42 @@ function riskLine(name, days, scale, max) {
   return `${pad(name, 8)} ${[1, 2, 3].map((d) => `d${d} ${cell(days[d])}`).join("  ")}`;
 }
 
+// current conditions in words. the raw metar and the taf are gone: they
+// cost bytes and need decoding (win, 2026-11-15).
+const COVER = { CLR: "clear", SKC: "clear", CAVOK: "clear", FEW: "a few clouds", SCT: "partly cloudy", BKN: "mostly cloudy", OVC: "overcast", VV: "sky obscured" };
+const WX = [["TS", "thunderstorm"], ["FZRA", "freezing rain"], ["FZDZ", "freezing drizzle"], ["RA", "rain"], ["DZ", "drizzle"], ["SN", "snow"], ["PL", "sleet"], ["GR", "hail"], ["GS", "small hail"], ["FG", "fog"], ["BR", "mist"], ["HZ", "haze"], ["FU", "smoke"], ["DU", "dust"], ["SH", "showers"]];
+export function weatherWords(code) {
+  if (!code) return "";
+  return code
+    .split(/\s+/)
+    .map((c) => {
+      const intensity = c.startsWith("-") ? "light " : c.startsWith("+") ? "heavy " : "";
+      const words = [];
+      let rest = c.replace(/^[-+]|^VC/, "");
+      for (const [k, w] of WX) if (rest.includes(k)) { words.push(w); rest = rest.replace(k, ""); }
+      return words.length ? intensity + words.join(", ") : "";
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
 function obsBlock(obs, tz) {
   if (!obs) return "";
+  const mph = (kt) => Math.round(kt * 1.15078);
   const t = c2fLocal(obs.temp);
   const d = c2fLocal(obs.dewp);
-  const wind = obs.wspd == null ? "" : obs.wspd === 0 ? "calm" : `${compass(obs.wdir)} ${Math.round(obs.wspd * 1.15078)}${obs.wgst ? "g" + Math.round(obs.wgst * 1.15078) : ""} mph`;
-  const cloud = (obs.clouds || []).filter((c) => c.base != null).map((c) => `${c.cover.toLowerCase()} ${c.base}`)[0] || (obs.cover || "").toLowerCase();
-  const head = `${(obs.icaoId || "").toLowerCase()} ${hhmm(obs.obsTime * 1000, tz)}`;
-  return [rule("NOW"), `${head}  ${t}f dew ${d}  ${wind}`, `${cloud}  vis ${obs.visib} mi`.trim(), wrap(obs.rawOb || "", "")].filter(Boolean).join("\n");
+  const lines = [rule("NOW"), `${t}f, dew point ${d}f`];
+  if (obs.wspd != null) {
+    lines.push(obs.wspd === 0 ? "wind calm" : `wind ${compass(obs.wdir)} ${mph(obs.wspd)} mph${obs.wgst ? `, gusts ${mph(obs.wgst)}` : ""}`);
+  }
+  const layer = (obs.clouds || []).find((c) => c.base != null);
+  const sky = layer ? `${COVER[layer.cover] || layer.cover.toLowerCase()} at ${layer.base.toLocaleString("en-US")} ft` : COVER[obs.cover] || "";
+  const vis = obs.visib == null ? "" : `${String(obs.visib).replace("+", " or more")} mi visibility`;
+  const wx = weatherWords(obs.wxString);
+  lines.push([wx, sky, vis].filter(Boolean).join(", "));
+  const place = (obs.name || obs.icaoId || "").split(",")[0].toLowerCase();
+  lines.push(`(${place}, ${hhmm(obs.obsTime * 1000, tz)})`);
+  return lines.filter(Boolean).join("\n");
 }
 const c2fLocal = (c) => (c == null ? "-" : Math.round((c * 9) / 5 + 32));
 
@@ -103,9 +131,8 @@ function afdBlock(entry, office, tz) {
   const lines = p.keyMessages
     .split(/\n\s*\n/)
     .map((m) => wrap(m.replace(/^-\s*/, ""), "  ").replace(/^ /, "-"));
-  const url = `https://forecast.weather.gov/product.php?site=${office}&issuedby=${office}&product=AFD`;
   return {
-    block: [rule(`NWS ${office} KEY MESSAGES`), staleLabel(entry, tz) + (p.issued ? `(${p.issued.toLowerCase()})` : ""), ...lines, `full discussion: ${url}`].join("\n"),
+    block: [rule(`NWS ${office} KEY MESSAGES`), staleLabel(entry, tz) + (p.issued ? `(${p.issued.toLowerCase()})` : ""), ...lines].join("\n"),
     spotter: p.spotter,
   };
 }
@@ -133,7 +160,6 @@ export function renderText(s, env, now) {
   parts.push(hourlyBlock(s.grid, now, tz));
   parts.push(dailyBlock(s.forecast, now, tz));
   parts.push(afd.block);
-  if (s.taf && s.taf.data) parts.push([rule("TAF"), staleLabel(s.taf, tz) + s.taf.data.trim().split("\n").map((l) => wrap(l.trim(), "", 46).replace(/\n/g, "\n  ")).join("\n")].join("\n"));
   if (s.lat != null) {
     const sun = sunTimes(s.lat, s.lon, new Date(now));
     parts.push(`\nsun  rise ${hhmm(sun.rise, tz)}  set ${hhmm(sun.set, tz)}`);
