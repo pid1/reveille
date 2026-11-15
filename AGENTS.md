@@ -11,7 +11,7 @@
 
 ### Toolchain
 - uv manages the Python project. `pyproject.toml` sets `exclude-newer = "7 days"` under `[tool.uv]`, and `uv.lock` is committed.
-- uv installs a managed CPython for the `3.15` in `.python-version`. The uv release decides the patch version: uv 0.13.1 installs 3.15.0, and uv 0.13.5 installs 3.15.1. uv 0.13.5 does not offer 3.15.2, which python.org released on 2026-10-25.
+- uv installs a managed CPython for the `3.15` in `.python-version`. The uv release decides the patch version: uv 0.13.5 installs 3.15.1, and uv 0.13.7 installs 3.15.2.
 
 ### Deploys outside CI
 - Cloudflare Workers Builds builds and deploys the `reveille` Worker on every push to main and on the deploy hook. The README gives the build command as `uv sync --frozen && uv run python build.py` and the deploy command as `npx wrangler deploy`. Cloudflare's own uv and npm run them, at versions set in the Cloudflare dashboard.
