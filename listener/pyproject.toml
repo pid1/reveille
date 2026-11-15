@@ -1,0 +1,19 @@
+[project]
+name = "reveille-listener"
+version = "0.1.0"
+description = "nwws-oi listener that pushes warnings for one home point"
+requires-python = ">=3.15"
+dependencies = [
+    "slixmpp>=1.17.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "nwws_listener"
+
+[tool.uv]
+# same cooldown as the page build: wait a week before taking a new release.
+exclude-newer = "7 days"

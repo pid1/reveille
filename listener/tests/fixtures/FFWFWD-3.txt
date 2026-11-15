@@ -1,0 +1,53 @@
+WGUS54 KFWD 032106
+FFWFWD
+TXC213-040000-
+/O.NEW.KFWD.FF.W.0095.261003T2106Z-261004T0000Z/
+/00000.0.ER.000000T0000Z.000000T0000Z.000000T0000Z.OO/
+
+BULLETIN - EAS ACTIVATION REQUESTED
+Flash Flood Warning
+National Weather Service Fort Worth TX
+406 PM CDT Sat Oct 3 2026
+
+The National Weather Service in Fort Worth has issued a
+
+* Flash Flood Warning for...
+  North Central Henderson County in central Texas...
+
+* Until 700 PM CDT.
+
+* At 406 PM CDT, Doppler radar indicated thunderstorms producing
+  heavy rain across the warned area. Between 3 and 5 inches of rain
+  have fallen. Additional rainfall amounts of 2 to 3 inches are
+  possible in the warned area. Flash flooding is ongoing or expected
+  to begin shortly.
+
+  HAZARD...Flash flooding caused by thunderstorms.
+
+  SOURCE...Radar indicated.
+
+  IMPACT...Flash flooding of small creeks and streams, urban areas,
+           highways, streets and underpasses as well as other poor
+           drainage and low-lying areas.
+
+* Some locations that will experience flash flooding include...
+  Murchison.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+Turn around, don't drown when encountering flooded roads. Most flood
+deaths occur in vehicles.
+
+Be aware of your surroundings and do not drive on flooded roads.
+
+&&
+
+LAT...LON 3220 9577 3220 9575 3231 9570 3234 9581
+      3233 9587 3224 9588 3225 9583 3224 9578
+      3223 9578
+
+FLASH FLOOD...RADAR INDICATED
+
+$$
+
+Darrah

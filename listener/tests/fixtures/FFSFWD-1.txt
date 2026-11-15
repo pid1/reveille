@@ -1,0 +1,26 @@
+WGUS74 KFWD 040206
+FFSFWD
+
+Flash Flood Statement
+National Weather Service Fort Worth TX
+906 PM CDT Sat Oct 3 2026
+
+TXC213-040216-
+/O.EXP.KFWD.FF.W.0094.000000T0000Z-261004T0200Z/
+/00000.0.ER.000000T0000Z.000000T0000Z.000000T0000Z.OO/
+Henderson TX-
+906 PM CDT Sat Oct 3 2026
+
+...FLASH FLOOD WARNING HAS EXPIRED FOR CENTRAL HENDERSON COUNTY...
+
+The heavy rain has ended. Please continue to heed remaining road
+closures as remaining excess water continues to runoff.
+
+&&
+
+LAT...LON 3224 9588 3219 9596 3212 9583 3215 9577
+      3224 9578 3225 9583
+
+$$
+
+Darrah

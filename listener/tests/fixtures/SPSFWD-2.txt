@@ -1,0 +1,52 @@
+WWUS84 KFWD 030458
+SPSFWD
+
+Special Weather Statement
+National Weather Service Fort Worth TX
+1058 PM CST Mon Nov 2 2026
+ 
+TXZ130-141-143-144-030530-
+Comanche TX-Bosque TX-Erath TX-Hamilton TX-
+1058 PM CST Mon Nov 2 2026
+
+...A strong thunderstorm will impact portions of northeastern
+Hamilton, southeastern Erath, west central Bosque and eastern
+Comanche Counties through 1130 PM CST...
+
+At 1057 PM CST, Doppler radar was tracking a strong thunderstorm 9
+miles west of Hico, or 13 miles southeast of Dublin, moving east at
+45 mph.
+
+HAZARD...Wind gusts up to 50 mph and half inch hail.
+
+SOURCE...Radar indicated.
+
+IMPACT...Gusty winds could knock down tree limbs and blow around 
+         unsecured objects. Minor damage to outdoor objects is 
+         possible.
+
+This strong thunderstorm will be near...
+  Hico around 1105 PM CST.
+  Iredell around 1115 PM CST.
+
+Other locations impacted by this storm include Carlton, Purves,
+Clairette, and Olin.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+If outdoors, consider seeking shelter inside a building. 
+
+A Tornado Watch remains in effect until 1100 PM CST for central and
+north central Texas.
+
+&&
+
+LAT...LON 3187 9829 3201 9829 3209 9786 3185 9783
+TIME...MOT...LOC 0457Z 260DEG 38KT 3194 9818 
+
+MAX HAIL SIZE...0.50 IN
+MAX WIND GUST...50 MPH
+
+$$
+
+Darrah
