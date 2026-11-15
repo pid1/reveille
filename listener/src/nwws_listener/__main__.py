@@ -166,6 +166,8 @@ async def listen(cfg: Config, engine: Engine) -> None:
             x = msg.xml.find("{nwws-oi}x")
             if x is None or not x.text:
                 return
+            if not self.products:
+                log.info("first product received: %s", x.get("awipsid") or "?")
             self.products += 1
             self.last = time.monotonic()
             engine.handle(x.text)
@@ -174,14 +176,27 @@ async def listen(cfg: Config, engine: Engine) -> None:
     while True:
         client = Client()
         done = asyncio.Event()
+        # only a real disconnect ends a session. connection_failed is not one:
+        # slixmpp raises it for each address it can't reach (an ipv6 address
+        # on a docker bridge with no ipv6, say) and then tries the next one
+        # by itself. treating it as the end once started a second session
+        # while the first was still connected, which is the one thing an
+        # nwws-oi account must never do. a connect that never succeeds is
+        # caught by the stall watchdog below instead.
         client.add_event_handler("disconnected", lambda *_: done.set())
-        client.add_event_handler("connection_failed", lambda *_: done.set())
+        client.add_event_handler("connection_failed", lambda e: log.info("connect attempt failed (%s); trying the next address", e))
         log.info("connecting to %s", HOST)
         client.connect(HOST, 5222)
 
         async def watchdog():
+            reported = 0
+            ticks = 0
             while not done.is_set():
                 await asyncio.sleep(60)
+                ticks += 1
+                if ticks % 10 == 0:
+                    log.info("%d products in the last 10 minutes", client.products - reported)
+                    reported = client.products
                 quiet = time.monotonic() - client.last
                 if quiet > STALL_SECONDS:
                     log.warning("no products for %ds, reconnecting", int(quiet))
