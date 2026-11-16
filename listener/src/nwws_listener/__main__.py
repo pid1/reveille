@@ -53,6 +53,9 @@ class Config:
         self.healthcheck = env.get("HEALTHCHECK_URL", "").strip() or None
         self.seen_url = env.get("REVEILLE_SEEN_URL", "").strip() or None
         self.seen_token = env.get("REVEILLE_SEEN_TOKEN", "").strip() or None
+        # the city feeds relay posts here; defaults to the same worker
+        default_city = self.seen_url.rsplit("/", 1)[0] + "/city" if self.seen_url else ""
+        self.city_url = env.get("REVEILLE_CITY_URL", "").strip() or default_city or None
         self.state_path = Path(env.get("STATE_DIR", "/data")) / "state.json"
         self.dry_run = env.get("DRY_RUN", "").lower() in ("1", "true", "yes")
 
@@ -243,7 +246,13 @@ def main(argv: list[str]) -> int:
     if not cfg.user or not cfg.password:
         sys.exit("NWWS_USERNAME and NWWS_PASSWORD are required to listen")
     engine = Engine(cfg)
-    asyncio.run(listen(cfg, engine))
+    from . import relay
+
+    async def both():
+        # the relay runs beside the listener: one failing never stops the other
+        await asyncio.gather(listen(cfg, engine), relay.run(cfg.city_url, cfg.seen_token))
+
+    asyncio.run(both())
     return 0
 
 

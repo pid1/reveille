@@ -106,11 +106,12 @@ async function gather(env, state, now) {
       if (!Array.isArray(d.features)) throw new Error("bad wildfire response");
       return d.features.map((f) => f.attributes);
     },
-    // the city's alert center: every category, not only emergencies
+    // the city's alert center, every category. the city's site does not
+    // answer cloudflare, so the nas fetches it and posts it to /city; a
+    // relay older than 30 minutes is a failure, named as such.
     city: async () => {
-      const xml = await get(env.CITY_ALERTS_URL || "https://www.highlandvillage.org/RSSFeed.aspx?ModID=63&CID=All-0", { json: false });
-      if (!/<rss/.test(xml)) throw new Error("not an rss feed");
-      return parseRss(xml);
+      const relay = await env.STORE.get("city", "json");
+      return cityFromRelay(relay, "all", now);
     },
     mcd: async () => {
       const d = await get(`${IEM}/spcmcd.py?lat=${lat}&lon=${lon}`, { timeout: 20000 });
@@ -200,6 +201,16 @@ export async function alertPushes(env, state, alerts, now, nasSeen) {
   }
   state.alertsInit = true;
   return out;
+}
+
+export const RELAY_STALE_MS = 30 * 60e3;
+export function cityFromRelay(relay, name, now) {
+  if (!relay || !relay.at) throw new Error("nas relay: nothing received");
+  if (now - Date.parse(relay.at) > RELAY_STALE_MS) throw new Error("nas relay stale");
+  const f = (relay.feeds || {})[name];
+  if (!f) throw new Error("nas relay: feed missing");
+  if (f.error) throw new Error(`nas relay: ${f.error}`);
+  return parseRss(f.xml);
 }
 
 // local-authority alerts: push each new one once. an update that references
@@ -304,6 +315,27 @@ export default {
 
   async fetch(req, env) {
     const url = new URL(req.url);
+    // the nas posts the city feeds here; both pages read them back from
+    // /city.json (public: it's the city's own public rss)
+    if (url.pathname === "/city" && req.method === "POST") {
+      const auth = req.headers.get("Authorization") || "";
+      if (!env.SEEN_TOKEN || auth !== `Bearer ${env.SEEN_TOKEN}`) return new Response("forbidden\n", { status: 403 });
+      const body = await req.text();
+      if (body.length > 400_000) return new Response("too large\n", { status: 413 });
+      let doc;
+      try {
+        doc = JSON.parse(body);
+      } catch {
+        return new Response("bad request\n", { status: 400 });
+      }
+      if (!doc || typeof doc.at !== "string" || typeof doc.feeds !== "object") return new Response("bad request\n", { status: 400 });
+      await env.STORE.put("city", JSON.stringify({ at: doc.at, feeds: doc.feeds }));
+      return new Response("ok\n");
+    }
+    if (url.pathname === "/city.json" && req.method === "GET") {
+      const relay = await env.STORE.get("city");
+      return new Response(relay || "{}", { headers: { ...HEADERS, "Content-Type": "application/json" } });
+    }
     if (url.pathname === "/seen" && req.method === "POST") {
       const auth = req.headers.get("Authorization") || "";
       if (!env.SEEN_TOKEN || auth !== `Bearer ${env.SEEN_TOKEN}`) return new Response("forbidden\n", { status: 403 });

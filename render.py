@@ -349,6 +349,8 @@ def short_reason(error: str | None) -> str:
     """'http 500', 'timeout', 'dns' ... never the upstream's own text, which
     has been a whole html error page."""
     e = (error or "").lower()
+    if "nas relay" in e:
+        return "nas relay stale" if "stale" in e else "nas relay not running" if "nothing" in e else "nas relay"
     m = __import__("re").search(r"http (\d{3})", e)
     if m:
         return f"http {m.group(1)}"

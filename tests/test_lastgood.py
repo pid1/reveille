@@ -196,10 +196,20 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
             "fetched_at": _ago(24),
             "data": [{"title": "Yesterday police item", "link": "", "published": "", "summary": ""}],
         }
-        b = Build(_net({"hv_rss.police": entry}, {hv_rss.FEEDS["police"]: DEAD}))
+        from tests.test_degradation import relay_body
+
+        rss = lambda t: (  # noqa: E731
+            '<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>'
+            f"<item><title>{t}</title><link>https://x/</link></item></channel></rss>"
+        ).encode()
+        net = _net({"hv_rss.police": entry}, {})
+        net.bodies[hv_rss.RELAY_URL] = relay_body(
+            {"emergency": rss("e"), "fire": rss("f")}, errors={"police": "URLError: no dns"}
+        )
+        b = Build(net)
         # the feeds aren't listed on the page any more; the status line says
         # which one failed, and the summary still gets the copy
-        self.assertIn("city police feed (network, older copy used)", b.html)
+        self.assertIn("city police feed (nas relay, older copy used)", b.html)
         self.assertSectionOk(b, "rss_emergency")
         self.assertSectionOk(b, "rss_fire")
         self.assertIn("HV_POLICE: (today's fetch failed; copy from ", b.prompt)
@@ -212,7 +222,7 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
             entry["fetched_at"] = _ago(24)
         yesterday["nws_forecast"] = _forecast_entry(24)
         net = FakeNet(
-            {"https://api.": DEAD, "https://www.": DEAD, "https://raw.": DEAD, "https://mesonet.": DEAD, "https://gis.": DEAD},
+            {"https://api.": DEAD, "https://www.": DEAD, "https://raw.": DEAD, "https://mesonet.": DEAD, "https://gis.": DEAD, "https://full.": DEAD},
             overrides={lastgood.URL: lastgood.dumps(yesterday).encode()},
         )
         b = Build(net)
