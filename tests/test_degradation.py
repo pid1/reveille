@@ -34,7 +34,7 @@ import lastgood
 import notifier
 import summarize
 from config import TIMEZONE
-from fetchers import base, ercot, hf_bands, hv_rss, spc
+from fetchers import base, ercot, fema, hf_bands, hv_rss, spc
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -133,6 +133,9 @@ def _good_bodies() -> dict[str, bytes]:
         KMZ: kmz.getvalue(),
         hf_bands.URL: (FIXTURES / "hamqsl_solarxml.xml").read_bytes(),
         spc.URL: json.dumps({"outlook": {"threshold": "SLGT"}}).encode(),
+        # a quiet day: no declarations, no recovery centers
+        fema.DECL_URL: json.dumps({"DisasterDeclarationsSummaries": []}).encode(),
+        fema.DRC_URL: json.dumps({"features": []}).encode(),
         summarize.ANTHROPIC_API: json.dumps(
             {"content": [{"type": "text", "text": "storms tonight, hail possible."}]}
         ).encode(),
@@ -155,6 +158,8 @@ SECTIONS = {
     "rss_police": (None, None, "city police feed ("),
     "rss_fire": (None, None, "city fire feed ("),
     "spc": (None, "d1 SLGT (2/5)", "spc outlook ("),
+    "fema_decl": (None, None, "fema declarations ("),
+    "fema_drc": (None, None, "fema recovery centers ("),
 }
 BLUF = "storms tonight, hail possible."
 
@@ -171,6 +176,8 @@ SOURCES = {
     "ghostmaps_kmz": ([KMZ], ["ghostmaps"]),
     "hf_bands": ([hf_bands.URL], ["hf_bands"]),
     "spc": ([spc.URL], ["spc"]),
+    "fema_decl": ([fema.DECL_URL], ["fema_decl"]),
+    "fema_drc": ([fema.DRC_URL], ["fema_drc"]),
 }
 
 # summary-blob label for each section, to check the prompt still goes out
@@ -184,6 +191,8 @@ BLOB = {
     "rss_fire": "HV_FIRE",
     "hf_bands": "HF_PROPAGATION",
     "spc": "SPC_OUTLOOK",
+    "fema_decl": "FEMA_DECLARATIONS_LAST_60_DAYS",
+    "fema_drc": "FEMA_RECOVERY_CENTERS_OPEN_NEARBY",
 }
 
 
@@ -319,6 +328,24 @@ class DegradationTest(PageAsserts, unittest.TestCase):
         for key in SECTIONS:
             self.assertSectionOk(b, key)
         self.assertEqual(b.push_message, BLUF)
+
+    def test_fema_shows_only_when_there_is_something(self):
+        b = Build(FakeNet())
+        self.assertNotIn("<b>FEMA</b>", b.html)
+        net = FakeNet(overrides={
+            fema.DECL_URL: json.dumps({"DisasterDeclarationsSummaries": [
+                {"femaDeclarationString": "DR-4900-TX", "declarationTitle": "SEVERE STORMS AND FLOODING", "declarationDate": "2026-11-10T00:00:00.000Z"}
+            ]}).encode(),
+            fema.DRC_URL: json.dumps({"features": [
+                {"attributes": {"drc_name": "Denton DRC", "street_1": "1 Main St", "city": "Denton", "county_parish": "Denton", "status": "Open", "hours": "8am-7pm"}},
+                {"attributes": {"drc_name": "Kerrville DRC", "street_1": "2 Main St", "city": "Kerrville", "county_parish": "Kerr", "status": "Open", "hours": ""}},
+            ]}).encode(),
+        })
+        b = Build(net)
+        self.assertIn("<b>FEMA</b>", b.html)
+        self.assertIn("declared 2026-11-10: severe storms and flooding\n  (DR-4900-TX)", b.html)
+        self.assertIn("recovery center: denton drc, 1 main st, denton\n  (8am-7pm)", b.html)
+        self.assertNotIn("Kerrville", b.html)
 
     def test_each_source_each_failure(self):
         for source, (prefixes, failed) in SOURCES.items():

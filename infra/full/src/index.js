@@ -6,7 +6,7 @@
 // the nas has not already pushed.
 // fetch(): serve the page from kv; accept the nas's "already pushed" report.
 
-import { parseHamqsl, priorityFor, shortReason, vtecKey } from "./parse.js";
+import { parseHamqsl, parseIpaws, parseRss, priorityFor, shortReason, vtecKey } from "./parse.js";
 import { plain, renderText, toHtml } from "./render.js";
 
 const UA = "reveille-full (github.com/pid1/reveille)";
@@ -19,7 +19,7 @@ const STUCK_MS = 25 * 60e3;
 const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, spc: 12, ero: 12, hf: 48 };
 
 async function get(url, { json = true, timeout = 8000, headers = {} } = {}) {
-  const r = await fetch(url, { headers: { "User-Agent": UA, Accept: json ? "application/geo+json, application/json" : "text/plain", ...headers }, signal: AbortSignal.timeout(timeout) });
+  const r = await fetch(url, { headers: { "User-Agent": UA, Accept: json ? "application/geo+json, application/json" : "application/xml, text/xml, text/plain, */*", ...headers }, signal: AbortSignal.timeout(timeout) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return json ? r.json() : r.text();
 }
@@ -83,6 +83,35 @@ async function gather(env, state, now) {
       if (c && now - c.at < 3600e3) return { reuse: c };
       return parseHamqsl(await get("https://www.hamqsl.com/solarxml.php", { json: false }));
     },
+    // local authorities' alerts (county, city, police, txdot) from fema's
+    // live ipaws feed. nws alerts are dropped: they are covered above.
+    ipaws: async () => {
+      const since = new Date(now - 24 * 3600e3).toISOString().slice(0, 19) + "Z";
+      const xml = await get(`https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/public/recent/${since}`, { json: false, timeout: 15000 });
+      if (!/<(ns1:)?alerts/.test(xml)) throw new Error("not an ipaws feed");
+      return parseIpaws(xml, (env.SAME_CODES || "048121").split(","), now);
+    },
+    // fema's open-shelter list (the national shelter system, which includes
+    // red cross shelters), limited to nearby cities
+    shelters: async () => {
+      const cities = (env.SHELTER_CITIES || "").split(",").map((c) => `'${c.trim().toUpperCase().replace(/'/g, "")}'`).join(",");
+      const where = encodeURIComponent(`state='TX' AND UPPER(city) IN (${cities})`);
+      const d = await get(`https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=${where}&outFields=shelter_name,address,city,shelter_status,total_population,evacuation_capacity&returnGeometry=false&f=json`, { timeout: 20000 });
+      if (!Array.isArray(d.features)) throw new Error("bad shelter response");
+      return d.features.map((f) => f.attributes).filter((a) => /open/i.test(a.shelter_status || "open"));
+    },
+    // wildfires (not prescribed burns) within 25 miles
+    fire: async () => {
+      const d = await get(`https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Incident_Locations_Current/FeatureServer/0/query?where=${encodeURIComponent("IncidentTypeCategory='WF'")}&geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326&distance=25&units=esriSRUnit_StatuteMile&outFields=IncidentName,IncidentSize,PercentContained&returnGeometry=false&f=json`, { timeout: 15000 });
+      if (!Array.isArray(d.features)) throw new Error("bad wildfire response");
+      return d.features.map((f) => f.attributes);
+    },
+    // the city's alert center: every category, not only emergencies
+    city: async () => {
+      const xml = await get(env.CITY_ALERTS_URL || "https://www.highlandvillage.org/RSSFeed.aspx?ModID=63&CID=All-0", { json: false });
+      if (!/<rss/.test(xml)) throw new Error("not an rss feed");
+      return parseRss(xml);
+    },
     mcd: async () => {
       const d = await get(`${IEM}/spcmcd.py?lat=${lat}&lon=${lon}`, { timeout: 20000 });
       return (d.mcds || []).filter((m) => Date.parse(m.utc_expire) > now).map((m) => ({ num: m.product_num, concerning: m.concerning || "", watch: m.watch_confidence }));
@@ -116,7 +145,7 @@ async function gather(env, state, now) {
   return s;
 }
 
-const NAMES = { alerts: "nws alerts", obs: "current conditions", grid: "hourly forecast", forecast: "7-day forecast", afd: "forecast discussion", spc: "spc outlook", ero: "excessive rain outlook", mcd: "mesoscale discussions", hf: "hf bands" };
+const NAMES = { alerts: "nws alerts", obs: "current conditions", grid: "hourly forecast", forecast: "7-day forecast", afd: "forecast discussion", spc: "spc outlook", ero: "excessive rain outlook", mcd: "mesoscale discussions", hf: "hf bands", ipaws: "local alerts", shelters: "shelters", fire: "wildfires", city: "city alerts" };
 
 // -- pushes -------------------------------------------------------------------
 
@@ -173,6 +202,24 @@ export async function alertPushes(env, state, alerts, now, nasSeen) {
   return out;
 }
 
+// local-authority alerts: push each new one once. an update that references
+// one already seen stays silent. the first run only records what is active.
+export function ipawsPushes(state, alerts, now) {
+  const seen = (state.ipaws = state.ipaws || {});
+  const out = [];
+  for (const a of alerts) {
+    if (seen[a.id]) continue;
+    const update = a.refs.some((r) => seen[r]);
+    seen[a.id] = now;
+    if (!state.ipawsInit || update) continue;
+    const p = /extreme|severe/i.test(a.severity) && /immediate/i.test(a.urgency) ? 1 : 0;
+    out.push({ title: `${a.event.toLowerCase()} (${a.sender.toLowerCase()})`, message: (a.text || a.headline).slice(0, 1000), priority: p });
+  }
+  for (const [id, at] of Object.entries(seen)) if (now - at > 3 * 864e5) delete seen[id];
+  state.ipawsInit = true;
+  return out;
+}
+
 // -- pipeline health -------------------------------------------------------------
 
 async function health(env, state, alertsOk, now) {
@@ -204,6 +251,9 @@ export async function run(env, now = Date.now()) {
   if (alertsOk) {
     const pushes = await alertPushes(env, state, s.alerts.data, now, async (k) => !!(await env.STORE.get(`seen:${k}`)));
     for (const p of pushes) await push(env, p);
+  }
+  if (s.ipaws && !s.ipaws.stale) {
+    for (const p of ipawsPushes(state, s.ipaws.data, now)) await push(env, p);
   }
   await health(env, state, alertsOk, now);
   await env.STORE.put("state", JSON.stringify(state));

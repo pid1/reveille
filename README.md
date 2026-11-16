@@ -10,6 +10,9 @@ a plaintext daily morning briefing for highland village, tx. one static html pag
   something was posted in the last two days (no longer listed on the page)
 - spc convective outlook days 1-3, one line, only when there is a risk
 - what started and ended since yesterday's alerts
+- fema: a disaster declaration for denton county in the last 60 days, and open
+  disaster recovery centers in denton and the neighbouring counties (only when
+  there is one)
 - geolocated incidents from s2 underground's ghostmaps common intelligence picture, filtered to within 25 miles and the last 24 hours
 - hf band conditions: solar flux, sunspots, a/k index, x-ray and n0nbh's calculated day/night conditions per band group, from [hamqsl.com](https://www.hamqsl.com/solar.html) (credited and linked on the page, as n0nbh asks; fetched once per build, well inside the hourly limit)
 - short ai-generated summary at the top (claude sonnet 5.5), with graceful fallback to raw data if the summary call fails

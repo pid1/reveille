@@ -171,3 +171,49 @@ export function parseHamqsl(xml) {
   }
   return { conditions: cond, vhf };
 }
+
+const tag = (xml, name) => {
+  const m = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(xml);
+  return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : "";
+};
+const unescapeXml = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&");
+
+// fema ipaws live feed (cap 1.2) -> active, non-nws alerts naming one of
+// the given same codes (e.g. 048121, denton county). nws alerts are already
+// covered by api.weather.gov and the nas listener.
+export function parseIpaws(xml, sameCodes, now) {
+  const out = [];
+  for (const m of String(xml).matchAll(/<alert[\s>][\s\S]*?<\/alert>/g)) {
+    const a = m[0];
+    if (tag(a, "status") !== "Actual" || tag(a, "msgType") === "Cancel" || tag(a, "scope") !== "Public") continue;
+    const sender = tag(a, "sender");
+    const senderName = tag(a, "senderName");
+    if (/nws|noaa/i.test(sender) || /nws|national weather service/i.test(senderName)) continue;
+    const same = [...a.matchAll(/<geocode><valueName>SAME<\/valueName><value>(\d{6})<\/value><\/geocode>/g)].map((g) => g[1]);
+    if (!same.some((c) => sameCodes.includes(c))) continue;
+    const expires = tag(a, "expires");
+    if (expires && Date.parse(expires) <= now) continue;
+    const long = /<valueName>CMAMlongtext<\/valueName><value>([\s\S]*?)<\/value>/.exec(a);
+    const refs = tag(a, "references");
+    out.push({
+      id: tag(a, "identifier"),
+      refs: refs ? refs.split(/\s+/).map((r) => r.split(",")[1]).filter(Boolean) : [],
+      event: unescapeXml(tag(a, "event")),
+      sender: unescapeXml(senderName || sender),
+      headline: unescapeXml(tag(a, "headline")),
+      text: unescapeXml(long ? long[1] : tag(a, "description")).replace(/\s+/g, " ").slice(0, 400),
+      severity: tag(a, "severity"),
+      urgency: tag(a, "urgency"),
+      expires,
+    });
+  }
+  return out;
+}
+
+// a plain rss 2.0 feed -> items
+export function parseRss(xml) {
+  return [...String(xml).matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => ({
+    title: unescapeXml(tag(m[1], "title")),
+    published: tag(m[1], "pubDate"),
+  }));
+}

@@ -279,6 +279,26 @@ def _render_spc(env: dict) -> str:
     return f"\nSPC  {cells}"
 
 
+def _render_fema(decl: dict, drc: dict) -> str:
+    """disaster declarations for the county in the last 60 days, and open
+    recovery centers nearby. nothing at all on a normal day."""
+    lines = []
+    if decl.get("status") == "ok":
+        for d in decl["data"] or []:
+            lines.append(_wrap(f"declared {d['date']}: {d['title'].lower()} ({d['id']})", indent="").replace("\n", "\n  "))
+    if drc.get("status") == "ok":
+        for c in drc["data"] or []:
+            where = ", ".join(x for x in (c["name"], c["address"], c["city"]) if x).lower()
+            hours = f" ({c['hours'].lower()})" if c.get("hours") else ""
+            lines.append(_wrap(f"recovery center: {where}{hours}", indent="").replace("\n", "\n  "))
+    if not lines:
+        return ""
+    label = ""
+    if drc.get("stale_from"):
+        label = "[recovery centers: fetch failed; older copy]\n"
+    return f"{_rule('FEMA')}\n{label}" + "\n".join(lines)
+
+
 def _render_changes(changes: dict | None) -> str:
     """what started and what ended since the previous briefing's alerts."""
     if not changes:
@@ -320,6 +340,8 @@ _SOURCE_NAMES = {
     "ghostmaps": "ghostmaps",
     "hf_bands": "hf bands",
     "spc": "spc outlook",
+    "fema_decl": "fema declarations",
+    "fema_drc": "fema recovery centers",
 }
 
 
@@ -518,6 +540,8 @@ def render_text(
         rendered.append(text)
         if title == "NWS ALERTS" and "spc" in sections:
             rendered.append(_guard("SPC", _render_spc, sections["spc"]))
+        if title == "NWS ALERTS" and "fema_decl" in sections:
+            rendered.append(_guard("FEMA", _render_fema, sections["fema_decl"], sections.get("fema_drc") or {}))
     rendered.append(_guard("CITY NEWS", _render_city_news, sections["hv_rss"], now))
     failed = _render_failed(sections, summary)
     if failed:

@@ -8,6 +8,12 @@ and the poll-side backup for warning pushes. no llm.
 - a `failed:` line under the timestamp naming any source that failed this run, with a short
   reason (`http 500`, `timeout`). absent when everything worked. error text never reaches the page.
 - active alerts (warnings in caps between stars, watches between single stars)
+- local alerts: active alerts from local authorities (county, city, police, txdot) for denton
+  county, from fema's live ipaws feed, with nws alerts left out. each new one also pushes once.
+- city alerts: anything in highland village's alert center feed, every category
+- open fema / red cross shelters in nearby cities (`SHELTER_CITIES` in wrangler.toml)
+- wildfires within 25 miles, prescribed burns left out
+- each of these four appears only when it has something
 - spc mesoscale discussions covering the point, spc day 1-3 and wpc excessive rain day 1-3
   (only when there is a risk), and the fort worth office's spotter statement (only when
   activation is possible or under way)
