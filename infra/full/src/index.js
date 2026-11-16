@@ -16,7 +16,7 @@ const STUCK_MS = 25 * 60e3;
 
 // how long a copy may stand in for a failed fetch. alerts and current
 // conditions never carry over: an old copy of either reads as current.
-const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, spc: 12, ero: 12, hf: 48 };
+const COPY_HOURS = { grid: 6, forecast: 24, afd: 24, spc: 12, ero: 12, hf: 48, shelters: 2 };
 
 async function get(url, { json = true, timeout = 8000, headers = {} } = {}) {
   const r = await fetch(url, { headers: { "User-Agent": UA, Accept: json ? "application/geo+json, application/json" : "application/xml, text/xml, text/plain, */*", ...headers }, signal: AbortSignal.timeout(timeout) });
@@ -96,7 +96,18 @@ async function gather(env, state, now) {
     shelters: async () => {
       const cities = (env.SHELTER_CITIES || "").split(",").map((c) => `'${c.trim().toUpperCase().replace(/'/g, "")}'`).join(",");
       const where = encodeURIComponent(`state='TX' AND UPPER(city) IN (${cities})`);
-      const d = await get(`https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=${where}&outFields=shelter_name,address,city,shelter_status,total_population,evacuation_capacity&returnGeometry=false&f=json`, { timeout: 20000 });
+      // gis.fema.gov often holds a request open and answers the next one in
+      // half a second, so three short tries rather than one long one
+      const url = `https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=${where}&outFields=shelter_name,address,city,shelter_status,total_population,evacuation_capacity&returnGeometry=false&f=json`;
+      let d;
+      for (let i = 0; i < 3; i++) {
+        try {
+          d = await get(url, { timeout: 8000 });
+          break;
+        } catch (e) {
+          if (i === 2) throw e;
+        }
+      }
       if (!Array.isArray(d.features)) throw new Error("bad shelter response");
       return d.features.map((f) => f.attributes).filter((a) => /open/i.test(a.shelter_status || "open"));
     },

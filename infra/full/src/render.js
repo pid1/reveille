@@ -172,9 +172,10 @@ function cityBlock(items) {
   return [rule("CITY ALERTS"), ...items.slice(0, 5).map((i) => wrap(i.title, "").replace(/\n/g, "\n  "))].join("\n");
 }
 
-function sheltersBlock(list) {
+function sheltersBlock(entry, tz) {
+  const list = entry && entry.data;
   if (!list || !list.length) return "";
-  const out = [rule("SHELTERS OPEN")];
+  const out = [rule("SHELTERS OPEN"), staleLabel(entry, tz).trimEnd()].filter(Boolean);
   for (const a of list) out.push(wrap(`${a.shelter_name}, ${a.address}, ${a.city}`.toLowerCase(), "").replace(/\n/g, "\n  "));
   return out.join("\n");
 }
@@ -205,7 +206,7 @@ export function renderText(s, env, now) {
   parts.push(alertsBlock(s.alerts && s.alerts.data, tz));
   parts.push(ipawsBlock(s.ipaws && s.ipaws.data, tz));
   parts.push(cityBlock(s.city && s.city.data));
-  parts.push(sheltersBlock(s.shelters && s.shelters.data));
+  parts.push(sheltersBlock(s.shelters, tz));
   parts.push(fireBlock(s.fire && s.fire.data));
   const risk = [];
   if (s.mcd && s.mcd.data && s.mcd.data.length) {
