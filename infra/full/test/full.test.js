@@ -1,8 +1,8 @@
 // node --test infra/full/test/*.test.js
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { afdParts, dailyRows, parseHamqsl, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
-import { alertPushes, morningRun, run } from "../src/index.js";
+import { afdParts, dailyRows, parseHamqsl, parseIpaws, parseRss, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
+import { alertPushes, ipawsPushes, morningRun, run } from "../src/index.js";
 import { renderText, spotterMatters, weatherWords } from "../src/render.js";
 
 test("vtec keys match the nas listener's format", () => {
@@ -150,4 +150,57 @@ test("hf bands at the bottom, sun under now", () => {
   const lines = text.trimEnd().split("\n");
   assert.deepEqual(lines.slice(-4), ["      80-40 30-20 17-15 12-10", "day   fair  good  fair  fair", "night good  good  fair  poor", "vhf   e-skip 50mhz es"]);
   assert.match(text, /\(denton muni, 14:53\)\nsun  rise \d\d:\d\d  set \d\d:\d\d\n/);
+});
+
+const cap = ({ id, sender = "county@example.gov", senderName = "Denton County OEM", same = "048121", msgType = "Alert", refs = "", expires = "2026-11-16T03:33:20-06:00" }) =>
+  `<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2"><identifier>${id}</identifier><sender>${sender}</sender><sent>2026-11-15T17:33:20-06:00</sent><status>Actual</status><msgType>${msgType}</msgType><scope>Public</scope>${refs ? `<references>${refs}</references>` : ""}<info><event>Shelter In Place Warning</event><urgency>Immediate</urgency><severity>Extreme</severity><expires>${expires}</expires><senderName>${senderName}</senderName><headline>SHELTER IN PLACE</headline><description></description><parameter><valueName>CMAMlongtext</valueName><value>Hazmat spill on I-35E &amp; FM 407. Shelter in place.</value></parameter><area><areaDesc>x</areaDesc><geocode><valueName>SAME</valueName><value>${same}</value></geocode></area></info></alert>`;
+const feed = (...alerts) => `<?xml version="1.0"?><ns1:alerts xmlns:ns1="http://gov.fema.ipaws.services/feed">${alerts.join("")}</ns1:alerts>`;
+
+test("ipaws: local, active, non-nws alerts for the county only", () => {
+  const now = Date.parse("2026-11-15T23:40:00Z");
+  const xml = feed(
+    cap({ id: "A" }),
+    cap({ id: "B", same: "048029" }),
+    cap({ id: "C", sender: "w-nws.webmaster@noaa.gov", senderName: "NWS Fort Worth TX" }),
+    cap({ id: "D", expires: "2026-11-15T10:00:00-06:00" }),
+    cap({ id: "E", msgType: "Cancel" }),
+  );
+  const got = parseIpaws(xml, ["048121"], now);
+  assert.deepEqual(got.map((a) => a.id), ["A"]);
+  assert.equal(got[0].text, "Hazmat spill on I-35E & FM 407. Shelter in place.");
+  assert.equal(got[0].sender, "Denton County OEM");
+  assert.deepEqual(parseIpaws(feed(), ["048121"], now), []);
+});
+
+test("ipaws pushes: bootstrap records, new pushes once, updates stay silent", () => {
+  const now = Date.parse("2026-11-15T23:40:00Z");
+  const state = {};
+  const [a] = parseIpaws(feed(cap({ id: "A" })), ["048121"], now);
+  assert.deepEqual(ipawsPushes(state, [a], now), []); // first run
+  const [b] = parseIpaws(feed(cap({ id: "B" })), ["048121"], now);
+  const p = ipawsPushes(state, [a, b], now);
+  assert.equal(p.length, 1);
+  assert.equal(p[0].priority, 1);
+  assert.equal(p[0].title, "shelter in place warning (denton county oem)");
+  const [c] = parseIpaws(feed(cap({ id: "C", msgType: "Update", refs: "county@example.gov,B,2026-11-15T17:33:20-06:00" })), ["048121"], now);
+  assert.deepEqual(ipawsPushes(state, [a, b, c], now), []);
+});
+
+test("new emergency sections show only when they have something", () => {
+  const now = Date.parse("2026-11-15T23:40:00Z");
+  const quiet = renderText({ ipaws: { data: [] }, city: { data: [] }, shelters: { data: [] }, fire: { data: [] }, failed: [] }, {}, now);
+  assert.doesNotMatch(quiet, /LOCAL ALERTS|CITY ALERTS|SHELTERS|WILDFIRE/);
+  const [a] = parseIpaws(feed(cap({ id: "A" })), ["048121"], now);
+  const busy = renderText({
+    ipaws: { data: [a] },
+    city: { data: parseRss("<rss><channel><item><title>Water main break on Highland Village Rd</title><pubDate>Sun, 15 Nov 2026 17:00:00 -0600</pubDate></item></channel></rss>") },
+    shelters: { data: [{ shelter_name: "Lewisville High School", address: "1098 W Main St", city: "Lewisville" }] },
+    fire: { data: [{ IncidentName: "Grapevine Lake", IncidentSize: 120.4, PercentContained: 40 }] },
+    failed: [],
+  }, {}, now);
+  assert.match(busy, /\*\* SHELTER IN PLACE WARNING \*\* until 03:33/);
+  assert.match(busy, /denton county oem: Hazmat spill/);
+  assert.match(busy, /^Water main break on Highland Village Rd$/m);
+  assert.match(busy, /^lewisville high school, 1098 w main st,\n  lewisville$/m);
+  assert.match(busy, /^grapevine lake, 120 acres, 40% contained$/m);
 });

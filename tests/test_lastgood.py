@@ -85,6 +85,7 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
                 "ercot",
                 "ghostmaps",
                 "hf_bands",
+                "fema_drc",
                 "hv_rss.emergency",
                 "hv_rss.police",
                 "hv_rss.fire",
@@ -211,7 +212,7 @@ class LastGoodTest(PageAsserts, unittest.TestCase):
             entry["fetched_at"] = _ago(24)
         yesterday["nws_forecast"] = _forecast_entry(24)
         net = FakeNet(
-            {"https://api.": DEAD, "https://www.": DEAD, "https://raw.": DEAD, "https://mesonet.": DEAD},
+            {"https://api.": DEAD, "https://www.": DEAD, "https://raw.": DEAD, "https://mesonet.": DEAD, "https://gis.": DEAD},
             overrides={lastgood.URL: lastgood.dumps(yesterday).encode()},
         )
         b = Build(net)

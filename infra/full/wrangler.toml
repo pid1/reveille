@@ -30,6 +30,11 @@ custom_domain = true
 TZ = "America/Chicago"
 DAILY_URL = "https://reveille.pid1.space/"
 PUSH_MIN_PRIORITY = "0"
+# fema ipaws: same codes whose local-authority alerts show and push.
+# 048121 is denton county.
+SAME_CODES = "048121"
+# cities whose open fema/red cross shelters show on the page
+SHELTER_CITIES = "Highland Village,Lewisville,Flower Mound,Lake Dallas,Corinth,Hickory Creek,Shady Shores,Copper Canyon,Double Oak,Bartonville,Argyle,Denton,The Colony,Carrollton,Coppell,Little Elm,Frisco"
 MORNING_HOUR = "4"
 MORNING_MINUTE = "20"
 

@@ -157,6 +157,39 @@ function bandsBlock(entry, tz) {
   return out.join("\n");
 }
 
+function ipawsBlock(list, tz) {
+  if (!list || !list.length) return "";
+  const out = [rule("LOCAL ALERTS")];
+  for (const a of list) {
+    const until = a.expires ? ` until ${hhmm(Date.parse(a.expires), tz)}` : "";
+    out.push(`** ${a.event.toUpperCase()} **${until}`, wrap(`${a.sender.toLowerCase()}: ${a.text || a.headline}`, "  "));
+  }
+  return out.join("\n");
+}
+
+function cityBlock(items) {
+  if (!items || !items.length) return "";
+  return [rule("CITY ALERTS"), ...items.slice(0, 5).map((i) => wrap(i.title, "").replace(/\n/g, "\n  "))].join("\n");
+}
+
+function sheltersBlock(list) {
+  if (!list || !list.length) return "";
+  const out = [rule("SHELTERS OPEN")];
+  for (const a of list) out.push(wrap(`${a.shelter_name}, ${a.address}, ${a.city}`.toLowerCase(), "").replace(/\n/g, "\n  "));
+  return out.join("\n");
+}
+
+function fireBlock(list) {
+  if (!list || !list.length) return "";
+  const out = [rule("WILDFIRE")];
+  for (const f of list) {
+    const size = f.IncidentSize ? `, ${Math.round(f.IncidentSize).toLocaleString("en-US")} acres` : "";
+    const pc = f.PercentContained != null ? `, ${Math.round(f.PercentContained)}% contained` : "";
+    out.push(`${(f.IncidentName || "unnamed").toLowerCase()}${size}${pc}`);
+  }
+  return out.join("\n");
+}
+
 export function spotterMatters(text) {
   if (!text) return false;
   return !/\b(not|no longer)\s+(be\s+)?(expected|anticipated|needed|requested|likely)\b|\bunlikely\b|\bno spotter activation\b/i.test(text);
@@ -170,6 +203,10 @@ export function renderText(s, env, now) {
 
   const parts = [head.join("\n")];
   parts.push(alertsBlock(s.alerts && s.alerts.data, tz));
+  parts.push(ipawsBlock(s.ipaws && s.ipaws.data, tz));
+  parts.push(cityBlock(s.city && s.city.data));
+  parts.push(sheltersBlock(s.shelters && s.shelters.data));
+  parts.push(fireBlock(s.fire && s.fire.data));
   const risk = [];
   if (s.mcd && s.mcd.data && s.mcd.data.length) {
     for (const m of s.mcd.data) risk.push(wrap(`md ${m.num}: ${m.concerning.toLowerCase()}${m.watch ? `, watch ${m.watch}%` : ""}`, "", 46));

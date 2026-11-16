@@ -176,6 +176,9 @@ to today:
   do not get mentioned. note that this section is now scoped to the
   last 24 hours, so everything you see here is by definition recent.
 - hv emergency rss entries from the last 48 hours.
+- a fema disaster declaration for the county, or an open fema disaster
+  recovery center nearby, in FEMA_DECLARATIONS_LAST_60_DAYS or
+  FEMA_RECOVERY_CENTERS_OPEN_NEARBY. name the center and its city.
 - an spc convective outlook of slight (SLGT) or higher for day 1 or day 2
   in SPC_OUTLOOK. marginal (MRGL) and general thunder (TSTM) are routine
   and stay out.

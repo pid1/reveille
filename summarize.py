@@ -131,6 +131,12 @@ def _fmt_spc(env: dict) -> str:
     return ", ".join(f"day {n} {d.get(str(n)) or 'none'}" for n in (1, 2, 3))
 
 
+def _fmt_fema(env: dict) -> str:
+    if env["status"] != "ok":
+        return f"unavailable ({env['error']})"
+    return "; ".join(str(x) for x in env["data"] or []) or "none"
+
+
 def _safe_fmt(fn, *args) -> str:
     try:
         return fn(*args)
@@ -165,6 +171,8 @@ def format_blob(sections: dict, now: datetime) -> str:
         f"GHOSTMAPS_NEARBY: {_section(_fmt_ghostmaps, sections['ghostmaps'])}\n"
         f"HF_PROPAGATION: {_section(_fmt_hf_bands, sections['hf_bands'])}\n"
         + (f"SPC_OUTLOOK: {_section(_fmt_spc, sections['spc'])}\n" if "spc" in sections else "")
+        + (f"FEMA_DECLARATIONS_LAST_60_DAYS: {_section(_fmt_fema, sections['fema_decl'])}\n" if "fema_decl" in sections else "")
+        + (f"FEMA_RECOVERY_CENTERS_OPEN_NEARBY: {_section(_fmt_fema, sections['fema_drc'])}\n" if "fema_drc" in sections else "")
     )
 
 

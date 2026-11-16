@@ -22,6 +22,8 @@ when it is from, if that copy is younger than the section's cutoff:
                      would show incidents outside that window.
   ercot          3h  grid numbers are minute-to-minute; yesterday's load
                      says nothing about this morning.
+  fema_drc      24h  recovery centers open for weeks; fema's gis server is
+                     flaky enough that a day-old list beats none.
 
 on the normal once-a-day schedule that means the forecast, band conditions
 and city feeds carry over from yesterday, and alerts, ghostmaps and ercot
@@ -48,8 +50,9 @@ CUTOFF_HOURS = {
     "ghostmaps": 12,
     "hv_rss": 72,
     "hf_bands": 48,
+    "fema_drc": 24,
 }
-_SIMPLE = ("nws_alerts", "nws_forecast", "ercot", "ghostmaps", "hf_bands")
+_SIMPLE = ("nws_alerts", "nws_forecast", "ercot", "ghostmaps", "hf_bands", "fema_drc")
 _FEEDS = ("emergency", "police", "fire")
 
 
