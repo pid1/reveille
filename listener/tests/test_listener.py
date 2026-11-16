@@ -180,3 +180,25 @@ class State(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Relay(unittest.TestCase):
+    def test_a_failing_feed_is_sent_as_an_error_not_dropped(self):
+        from unittest import mock
+
+        from nwws_listener import relay
+
+        def fake_http(url, *a, **k):
+            if "Police" in url:
+                raise TimeoutError("timed out")
+            if "Fire" in url:
+                return b"<html>captive portal</html>"
+            return b'<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>'
+
+        with mock.patch.object(relay, "_http", fake_http):
+            doc = relay.collect()
+        self.assertIn("xml", doc["feeds"]["emergency"])
+        self.assertIn("xml", doc["feeds"]["all"])
+        self.assertEqual(doc["feeds"]["police"], {"error": "TimeoutError: timed out"})
+        self.assertEqual(doc["feeds"]["fire"], {"error": "RuntimeError: not an rss feed"})
+        self.assertTrue(doc["at"].endswith("+00:00"))

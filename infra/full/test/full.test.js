@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { afdParts, dailyRows, parseHamqsl, parseIpaws, parseRss, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
-import { alertPushes, ipawsPushes, morningRun, run } from "../src/index.js";
+import worker, { alertPushes, cityFromRelay, ipawsPushes, morningRun, run } from "../src/index.js";
 import { renderText, spotterMatters, weatherWords } from "../src/render.js";
 
 test("vtec keys match the nas listener's format", () => {
@@ -203,4 +203,24 @@ test("new emergency sections show only when they have something", () => {
   assert.match(busy, /^Water main break on Highland Village Rd$/m);
   assert.match(busy, /^lewisville high school, 1098 w main st,\n  lewisville$/m);
   assert.match(busy, /^grapevine lake, 120 acres, 40% contained$/m);
+});
+
+test("city feeds come from the nas relay, and a stale or failed relay is named", async () => {
+  const now = Date.parse("2026-11-15T23:40:00Z");
+  const xml = "<rss><channel><item><title>Water main break</title><pubDate>x</pubDate></item></channel></rss>";
+  assert.deepEqual(cityFromRelay({ at: "2026-11-15T23:35:00Z", feeds: { all: { xml } } }, "all", now).map((i) => i.title), ["Water main break"]);
+  assert.throws(() => cityFromRelay(null, "all", now), /nas relay: nothing received/);
+  assert.throws(() => cityFromRelay({ at: "2026-11-15T22:00:00Z", feeds: { all: { xml } } }, "all", now), /nas relay stale/);
+  assert.throws(() => cityFromRelay({ at: "2026-11-15T23:35:00Z", feeds: { all: { error: "TimeoutError: timed out" } } }, "all", now), /nas relay: TimeoutError/);
+  assert.equal(shortReason("nas relay stale"), "nas relay stale");
+  assert.equal(shortReason("nas relay: nothing received"), "nas relay not running");
+
+  // the endpoint: token required, then stored and served back
+  const kv = new Map();
+  const env = { SEEN_TOKEN: "t", STORE: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => kv.set(k, v) } };
+  const post = (auth) => worker.fetch(new Request("https://x/city", { method: "POST", headers: auth ? { Authorization: auth } : {}, body: JSON.stringify({ at: "2026-11-15T23:35:00Z", feeds: { all: { xml } } }) }), env);
+  assert.equal((await post()).status, 403);
+  assert.equal((await post("Bearer t")).status, 200);
+  const got = await (await worker.fetch(new Request("https://x/city.json"), env)).json();
+  assert.equal(got.feeds.all.xml, xml);
 });

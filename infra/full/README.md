@@ -10,7 +10,10 @@ and the poll-side backup for warning pushes. no llm.
 - active alerts (warnings in caps between stars, watches between single stars)
 - local alerts: active alerts from local authorities (county, city, police, txdot) for denton
   county, from fema's live ipaws feed, with nws alerts left out. each new one also pushes once.
-- city alerts: anything in highland village's alert center feed, every category
+- city alerts: anything in highland village's alert center feed, every category. the city's site
+  does not answer cloudflare, so the nas fetches the feeds and posts them to `POST /city`
+  (`listener/README.md`); `GET /city.json` serves them to the daily build too. a relay older than
+  30 minutes shows as `failed: city alerts (nas relay stale)`.
 - open fema / red cross shelters in nearby cities (`SHELTER_CITIES` in wrangler.toml)
 - wildfires within 25 miles, prescribed burns left out
 - each of these four appears only when it has something

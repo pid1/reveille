@@ -24,7 +24,7 @@ import unittest
 import urllib.error
 import urllib.parse
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.utils import format_datetime
 from pathlib import Path
 from unittest import mock
@@ -44,6 +44,15 @@ FORECAST = "https://api.weather.gov/gridpoints/FWD/1,1/forecast"
 GH_LIST = "https://api.github.com/repos/s2underground/GhostMaps/contents/"
 KMZ = "https://raw.githubusercontent.com/test/cip.kmz"
 GRIDSTATUS = "https://api.gridstatus.io/"
+
+
+def relay_body(feeds: dict, at: datetime | None = None, errors: dict | None = None) -> bytes:
+    """reveille-full's /city.json: the feeds the nas fetched, or its errors."""
+    out = {n: {"xml": b.decode()} for n, b in feeds.items()}
+    for n, e in (errors or {}).items():
+        out[n] = {"error": e}
+    at = at or datetime.now(TIMEZONE)
+    return json.dumps({"at": at.isoformat(timespec="seconds"), "feeds": out}).encode()
 
 
 def _good_bodies() -> dict[str, bytes]:
@@ -116,9 +125,14 @@ def _good_bodies() -> dict[str, bytes]:
         GRIDSTATUS: json.dumps(
             {"data": [{"title": "Watch Test", "eea_level": 0, "load": 44000}]}
         ).encode(),
-        hv_rss.FEEDS["emergency"]: rss("Test emergency item"),
-        hv_rss.FEEDS["police"]: rss("Test police item"),
-        hv_rss.FEEDS["fire"]: rss("Test fire item"),
+        # the nas relay, as reveille-full serves it
+        hv_rss.RELAY_URL: relay_body(
+            {
+                "emergency": rss("Test emergency item"),
+                "police": rss("Test police item"),
+                "fire": rss("Test fire item"),
+            }
+        ),
         GH_LIST: json.dumps(
             [
                 {
@@ -168,10 +182,9 @@ SOURCES = {
     "nws_alerts": ([ALERTS], ["nws_alerts"]),
     "nws_forecast": ([POINTS], ["nws_forecast"]),
     "ercot": ([ercot.ERCOT_RT_URL], ["ercot"]),
-    "rss_emergency": ([hv_rss.FEEDS["emergency"]], ["rss_emergency"]),
-    "rss_police": ([hv_rss.FEEDS["police"]], ["rss_police"]),
-    "rss_fire": ([hv_rss.FEEDS["fire"]], ["rss_fire"]),
-    "rss_all": (list(hv_rss.FEEDS.values()), ["rss_emergency", "rss_police", "rss_fire"]),
+    # the relay endpoint itself failing costs all three feeds; one feed the
+    # nas could not fetch is tested in RelayTest below
+    "rss_relay": ([hv_rss.RELAY_URL], ["rss_emergency", "rss_police", "rss_fire"]),
     "ghostmaps_listing": ([GH_LIST], ["ghostmaps"]),
     "ghostmaps_kmz": ([KMZ], ["ghostmaps"]),
     "hf_bands": ([hf_bands.URL], ["hf_bands"]),
@@ -486,6 +499,40 @@ class DegradationTest(PageAsserts, unittest.TestCase):
         self.assertIn("nws alerts (", b.html)
         # a dead morning is still a small page
         self.assertLess(len(b.html), 2000)
+
+
+class RelayTest(PageAsserts, unittest.TestCase):
+    """the city feeds come from the nas relay; its failures are named."""
+
+    def _rss(self, title):
+        return _good_bodies()[hv_rss.RELAY_URL] and (
+            '<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>'
+            f"<item><title>{title}</title><link>https://www.highlandvillage.org/x</link>"
+            "<description>body</description></item></channel></rss>"
+        ).encode()
+
+    def test_one_feed_the_nas_could_not_fetch(self):
+        body = relay_body(
+            {"emergency": self._rss("e"), "fire": self._rss("f")},
+            errors={"police": "TimeoutError: timed out"},
+        )
+        b = Build(FakeNet(overrides={hv_rss.RELAY_URL: body}))
+        self.assertBuilt(b)
+        self.assertIn("city police feed (nas relay)", b.html)
+        self.assertSectionOk(b, "rss_emergency")
+        self.assertSectionOk(b, "rss_fire")
+
+    def test_stale_relay_fails_all_three(self):
+        old = datetime.now(TIMEZONE) - timedelta(hours=5)
+        body = relay_body({n: self._rss(n) for n in ("emergency", "police", "fire")}, at=old)
+        b = Build(FakeNet(overrides={hv_rss.RELAY_URL: body}))
+        self.assertBuilt(b)
+        for feed in ("emergency", "police", "fire"):
+            self.assertIn(f"city {feed} feed (nas relay stale)", b.html)
+
+    def test_relay_never_ran(self):
+        b = Build(FakeNet(overrides={hv_rss.RELAY_URL: b"{}"}))
+        self.assertIn("city police feed (nas relay not running)", b.html)
 
 
 class DeadlineTest(unittest.TestCase):

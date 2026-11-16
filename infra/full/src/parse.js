@@ -146,6 +146,7 @@ export function sunTimes(lat, lon, date) {
 
 export function shortReason(err) {
   const e = String(err || "").toLowerCase();
+  if (/nas relay/.test(e)) return /stale/.test(e) ? "nas relay stale" : /nothing/.test(e) ? "nas relay not running" : "nas relay";
   const m = /http (\d{3})/.exec(e);
   if (m) return `http ${m[1]}`;
   if (/timeout|timed out|abort/.test(e)) return "timeout";

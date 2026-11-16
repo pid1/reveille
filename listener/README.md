@@ -25,6 +25,15 @@ is the 6-character maidenhead square of the home point (about 8 by 5 km here).
 
 state is a json file in `/data`, so a restart does not push anything twice.
 
+## city feeds relay
+
+highland village's website does not answer cloudflare's network, so neither page could fetch
+the city's rss feeds. the container also fetches them every 10 minutes from the house and posts
+them to `https://full.reveille.pid1.space/city` with `REVEILLE_SEEN_TOKEN`. both pages read them
+back from `/city.json`. a feed the nas could not fetch is sent as an error, and a relay that stops
+is noticed from its timestamp (30 minutes on the full page, 3 hours on the daily page), so either
+shows in the pages' `failed:` line as `nas relay` or `nas relay stale`.
+
 ## the one-connection rule
 
 an nwws-oi account allows one connection. a second one, from a laptop for instance, can lock
