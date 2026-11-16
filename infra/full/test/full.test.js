@@ -194,7 +194,7 @@ test("new emergency sections show only when they have something", () => {
   const busy = renderText({
     ipaws: { data: [a] },
     city: { data: parseRss("<rss><channel><item><title>Water main break on Highland Village Rd</title><pubDate>Sun, 15 Nov 2026 17:00:00 -0600</pubDate></item></channel></rss>") },
-    shelters: { data: [{ shelter_name: "Lewisville High School", address: "1098 W Main St", city: "Lewisville" }] },
+    shelters: { data: [{ shelter_name: "Lewisville High School", address: "1098 W Main St", city: "Lewisville" }], at: now },
     fire: { data: [{ IncidentName: "Grapevine Lake", IncidentSize: 120.4, PercentContained: 40 }] },
     failed: [],
   }, {}, now);
