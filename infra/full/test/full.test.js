@@ -51,6 +51,16 @@ test("afd key messages and spotter statement", () => {
   assert.equal(p.keyMessages, "- Showers exit east.\n\n- Cold today.");
   assert.equal(p.spotter, "Spotter activation is not expected at this time.");
   assert.equal(p.issued, "1258 PM CST Sun Nov 15 2026");
+  assert.deepEqual(afdParts(".SHORT TERM...\nblah\n&&\n"), { keyMessages: "", spotter: "", issued: "" });
+});
+
+test("rss items: cdata, a missing element and an unclosed element", () => {
+  const items = parseRss("<rss><item><title><![CDATA[ Boil &amp; notice ]]></title><pubDate>Sun</pubDate></item><item><title>No date</title></item><item><title>open<pubDate>Mon</pubDate></item></rss>");
+  assert.deepEqual(items, [
+    { title: "Boil & notice", published: "Sun" },
+    { title: "No date", published: "" },
+    { title: "", published: "Mon" },
+  ]);
 });
 
 test("sun times are plausible for north texas in november", () => {
