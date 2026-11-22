@@ -1,5 +1,5 @@
 # reveille nwws-oi listener. same base and uv pins as rally's image.
-FROM python:3.15-slim@sha256:533b0b2f9b5d46fd097091cf826f27902f1d6c3bca714b6dc74551356aa97a51 AS builder
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 /uv /usr/local/bin/uv
 
@@ -8,7 +8,7 @@ COPY pyproject.toml uv.lock .python-version ./
 COPY src/ src/
 RUN uv sync --no-dev --frozen --no-editable
 
-FROM python:3.15-slim@sha256:533b0b2f9b5d46fd097091cf826f27902f1d6c3bca714b6dc74551356aa97a51
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 
 WORKDIR /app
 COPY --from=builder /app/.venv .venv
