@@ -1,0 +1,32 @@
+WWUS54 KFWD 030435
+SVSFWD
+
+Severe Weather Statement
+National Weather Service Fort Worth TX
+1035 PM CST Mon Nov 2 2026
+
+TXC093-143-030445-
+/O.EXP.KFWD.SV.W.0272.000000T0000Z-261103T0445Z/
+Erath TX-Comanche TX-
+1035 PM CST Mon Nov 2 2026
+
+...THE SEVERE THUNDERSTORM WARNING FOR NORTHWESTERN ERATH AND NORTH
+CENTRAL COMANCHE COUNTIES WILL EXPIRE AT 1045 PM CST...
+
+The storms which prompted the warning have weakened below severe
+limits, and have exited the warned area. Therefore the warning will
+be allowed to expire.  However gusty winds are still possible with
+these thunderstorms.
+
+A Tornado Watch remains in effect until 1100 PM CST for central and
+north central Texas.
+
+&&
+
+LAT...LON 3221 9847 3235 9847 3241 9836 3212 9822
+      3205 9857
+TIME...MOT...LOC 0435Z 250DEG 34KT 3236 9832 3221 9826 
+
+$$
+
+Darrah

@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # import config first so missing env vars fail loudly before any fetching
 from config import TIMEZONE
 
-from fetchers import ercot, ghostmaps, hv_rss, nws_alerts, nws_forecast
+from fetchers import ercot, fema, ghostmaps, hf_bands, hv_rss, nws_alerts, nws_forecast, spc
 from fetchers.base import safe, unavailable
 
 DIST = Path(__file__).parent / "dist"
@@ -28,6 +28,10 @@ HEADERS = """\
   Cache-Control: no-cache
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+/last-good.json
+  X-Robots-Tag: noindex
+/today.txt
+  Content-Type: text/plain; charset=utf-8
 """
 
 
@@ -47,6 +51,16 @@ def _gather() -> dict:
 
     print("[build] fetching ghostmaps ...", flush=True)
     sections["ghostmaps"] = safe(ghostmaps.fetch)
+
+    print("[build] fetching hf_bands ...", flush=True)
+    sections["hf_bands"] = safe(hf_bands.fetch)
+
+    print("[build] fetching spc ...", flush=True)
+    sections["spc"] = safe(spc.fetch)
+
+    print("[build] fetching fema ...", flush=True)
+    sections["fema_decl"] = safe(fema.fetch_declarations)
+    sections["fema_drc"] = safe(fema.fetch_drcs)
 
     for k, v in sections.items():
         print(
@@ -76,19 +90,53 @@ def _generate_summary(sections: dict, now: datetime) -> dict:
         return unavailable(f"{type(e).__name__}: {e}")
 
 
+def _alert_changes(previous: dict, alerts: dict, now: datetime) -> dict | None:
+    """event names that started and ended since the previous build's copy.
+
+    None when either side is unknown: no copy from the last ~36 hours, or
+    today's alerts failed (a copy standing in for them can't show change).
+    """
+    entry = previous.get("nws_alerts")
+    if alerts.get("status") != "ok" or alerts.get("stale_from") or not entry:
+        return None
+    try:
+        age = now - datetime.fromisoformat(entry["fetched_at"])
+    except TypeError, ValueError, KeyError:
+        return None
+    if not timedelta(hours=1) <= age <= timedelta(hours=36):
+        return None
+    before = {a.get("event") for a in entry.get("data") or [] if isinstance(a, dict)}
+    after = {a.get("event") for a in alerts.get("data") or []}
+    before.discard(None)
+    after.discard(None)
+    return {"new": sorted(after - before), "ended": sorted(before - after)}
+
+
 def main() -> int:
     # import render after config has validated env
-    from render import render_page
+    from render import plain, render_page, render_text
+
+    import lastgood
 
     now = datetime.now(TIMEZONE)
     sections = _gather()
+    # a failed section falls back to the previous build's copy, if it is
+    # recent enough. see lastgood.py for where that copy lives and why.
+    previous = lastgood.load()
+    store = lastgood.apply(sections, previous, now)
+    changes = _alert_changes(previous, sections["nws_alerts"], now)
+    stale = [k for k, v in sections.items() if v.get("stale_from")]
+    stale += [f"hv_rss.{f}" for f in (sections["hv_rss"]["data"] or {}).get("stale", {})]
+    if stale:
+        print(f"[build] showing last good copy for: {', '.join(stale)}", flush=True)
     summary = _generate_summary(sections, now)
 
     commit_sha = os.environ.get("GITHUB_SHA") or os.environ.get("GIT_COMMIT") or None
     if commit_sha:
         commit_sha = commit_sha[:7]
 
-    html = render_page(sections, summary, now, commit_sha=commit_sha)
+    text = render_text(sections, summary, now, changes)
+    html = render_page(sections, summary, now, commit_sha=commit_sha, text=text)
 
     DIST.mkdir(parents=True, exist_ok=True)
     out_path = DIST / "index.html"
@@ -97,13 +145,20 @@ def main() -> int:
     print(f"[build] wrote {out_path} ({size} bytes)", flush=True)
 
     (DIST / "_headers").write_text(HEADERS, encoding="utf-8")
+    # the same page as plain text, for curl, lynx or a winlink relay
+    (DIST / "today.txt").write_text(plain(text), encoding="utf-8")
+    try:
+        (DIST / lastgood.FILENAME).write_text(lastgood.dumps(store), encoding="utf-8")
+    except Exception as e:
+        # costs tomorrow's fallback copies, not today's page
+        print(f"[build] could not write {lastgood.FILENAME}: {e}", flush=True)
     if size > 50_000:
         print(f"[build] WARN: page is {size} bytes, above the 20KB target", flush=True)
 
     # opportunistic pushover notification. runs after the page is written
     # so any pushover failure cannot affect publishing. the notifier itself
-    # never raises -- it logs and returns. only fires when the BLUF is
-    # present and not the NSTR sentinel.
+    # never raises -- it logs and returns. sends the BLUF, a short fallback
+    # when the summary failed, and nothing on an NSTR day.
     try:
         from notifier import send_pushover  # local import; module is optional
 

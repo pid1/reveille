@@ -14,11 +14,13 @@ strategy: the page is essentially a plaintext document.
 
 from __future__ import annotations
 
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from html import escape as h
 from typing import Any
 
 from config import CITY
+from fetchers.base import truncate as _truncate
 
 COL = 48  # target line width for plaintext wrap. tuned so output of _wrap()
 # fits a typical mobile viewport (~360-430px) at the browser-default
@@ -50,10 +52,6 @@ def _rule(title: str) -> str:
     return f"\n{_B_OPEN}{title}{_B_CLOSE}\n"
 
 
-def _unavail_line(env: dict) -> str:
-    return f"[unavailable: {env.get('error') or 'unknown'}]"
-
-
 def _wrap(text: str, indent: str = "  ", width: int = COL) -> str:
     """wrap text to width characters with the given indent on continuation lines.
 
@@ -82,9 +80,8 @@ def _render_summary(env: dict) -> str:
     if env.get("status") == "ok" and env.get("data"):
         parts.append(env["data"])
     else:
-        reason = (env or {}).get("error") or "not generated"
-        parts.append("[ai summary unavailable -- see raw data below]")
-        parts.append(f"reason: {reason}")
+        # why is in the failed line at the top; the raw sections follow
+        parts.append("[summary unavailable; raw data below]")
     return "\n".join(parts)
 
 
@@ -93,7 +90,7 @@ def _render_summary(env: dict) -> str:
 
 def _render_nws_alerts(env: dict) -> str:
     if env["status"] != "ok":
-        return "\n".join([_rule("NWS ALERTS"), _unavail_line(env)])
+        return ""  # named in the failed line at the top
     alerts = env["data"] or []
     if not alerts:
         # hide the section entirely. no active alerts is a routine state;
@@ -116,10 +113,9 @@ def _render_nws_alerts(env: dict) -> str:
 
 
 def _render_nws_forecast(env: dict) -> str:
-    out = [_rule("NWS FORECAST")]
     if env["status"] != "ok":
-        out.append(_unavail_line(env))
-        return "\n".join(out)
+        return ""  # named in the failed line at the top
+    out = [_rule("NWS FORECAST")]
     periods = env["data"] or []
     if not periods:
         out.append("no forecast periods returned.")
@@ -144,7 +140,7 @@ def _render_nws_forecast(env: dict) -> str:
 
 def _render_ercot(env: dict) -> str:
     if env["status"] != "ok":
-        return "\n".join([_rule("ERCOT"), _unavail_line(env)])
+        return ""  # named in the failed line at the top
     d = env["data"] or {}
 
     # decide whether to hide the section. there are two fetch paths:
@@ -204,7 +200,7 @@ def _render_ghostmaps(env: dict) -> str:
     each emitted as its own line outside <pre>.
     """
     if env["status"] != "ok":
-        return "\n".join([_rule("GHOSTMAPS"), _unavail_line(env)])
+        return ""  # named in the failed line at the top
     d = env["data"] or {}
     nearby = d.get("nearby") or []
     if not nearby:
@@ -239,30 +235,166 @@ def _render_ghostmaps(env: dict) -> str:
     return "\n".join(out)
 
 
-# -- rss --------------------------------------------------------------------
+# -- hf bands ---------------------------------------------------------------
 
 
-def _render_rss_section(title: str, env: dict, key: str) -> str:
+def _render_hf_bands(env: dict) -> str:
+    """the band x day/night grid, and a vhf line only when something is open.
+    the indices go to the summary, not the page; the credit to n0nbh lives
+    in fetchers/hf_bands.py and the readme. always shown: the reader looks
+    for it every morning.
+    """
+    from fetchers.hf_bands import BANDS
+
     if env["status"] != "ok":
-        return "\n".join([_rule(title), _unavail_line(env)])
-    items = (env["data"] or {}).get(key) or []
-    if not items:
-        # hide the section entirely. an empty 14-day feed is the routine
-        # case for hv police / fire and produces no actionable signal.
-        # errors stay visible above; this only hides ok-and-empty.
-        return ""
-    out = [_rule(title)]
-    for i, e in enumerate(items):
-        if i:
-            out.append("")
-        pub = e.get("published") or ""
-        title_s = e.get("title") or ""
-        out.append(f"{pub}  {title_s}")
-        if e.get("link"):
-            out.append(f"  link: {e['link']}")
-        if e.get("summary"):
-            out.append(_wrap(e["summary"]))
+        return ""  # named in the failed line at the top
+    d = env["data"] or {}
+    cond = d.get("conditions") or {}
+    header = " ".join(f"{b.replace('m', ''):<5}" for b in BANDS)
+    out = [_rule("HF BANDS"), f"      {header}".rstrip()]
+    for time in ("day", "night"):
+        row = cond.get(time) or {}
+        cells = " ".join(f"{row.get(b) or '-':<5}" for b in BANDS)
+        out.append(f"{time:<5} {cells}".rstrip())
+    open_ = [f"{k} {v}" for k, v in (d.get("vhf") or {}).items() if v and "closed" not in v]
+    if open_:
+        out.append("vhf   " + ", ".join(open_))
     return "\n".join(out)
+
+
+# -- spc, changes, city news, source status ----------------------------------
+
+CITY_NEWS_URL = "https://www.highlandvillage.org/CivicAlerts.aspx"
+
+
+def _render_spc(env: dict) -> str:
+    """one line, only when some day has a risk. a failed lookup shows up in
+    the source-status line at the bottom instead of as a section."""
+    from fetchers import spc
+
+    if env["status"] != "ok" or not spc.any_risk(env["data"]):
+        return ""
+    d = env["data"]
+    cells = "  ".join(f"d{n} {spc.label(d.get(str(n), ''))}" for n in (1, 2, 3))
+    return f"\nSPC  {cells}"
+
+
+def _render_fema(decl: dict, drc: dict) -> str:
+    """disaster declarations for the county in the last 60 days, and open
+    recovery centers nearby. nothing at all on a normal day."""
+    lines = []
+    if decl.get("status") == "ok":
+        for d in decl["data"] or []:
+            lines.append(_wrap(f"declared {d['date']}: {d['title'].lower()} ({d['id']})", indent="").replace("\n", "\n  "))
+    if drc.get("status") == "ok":
+        for c in drc["data"] or []:
+            where = ", ".join(x for x in (c["name"], c["address"], c["city"]) if x).lower()
+            hours = f" ({c['hours'].lower()})" if c.get("hours") else ""
+            lines.append(_wrap(f"recovery center: {where}{hours}", indent="").replace("\n", "\n  "))
+    if not lines:
+        return ""
+    label = ""
+    if drc.get("stale_from"):
+        label = "[recovery centers: fetch failed; older copy]\n"
+    return f"{_rule('FEMA')}\n{label}" + "\n".join(lines)
+
+
+def _render_changes(changes: dict | None) -> str:
+    """what started and what ended since the previous briefing's alerts."""
+    if not changes:
+        return ""
+    parts = []
+    if changes.get("new"):
+        parts.append("new: " + ", ".join(changes["new"]).lower() + ".")
+    if changes.get("ended"):
+        parts.append("ended: " + ", ".join(changes["ended"]).lower() + ".")
+    if not parts:
+        return ""
+    return "\n" + _wrap("since yesterday: " + " ".join(parts), indent="").replace("\n", "\n  ")
+
+
+def _render_city_news(env: dict, now: datetime) -> str:
+    """the city feeds are no longer listed; the summary reports anything that
+    matters. one link, only when something was posted in the last two days."""
+    if env["status"] != "ok":
+        return ""
+    cutoff = now - timedelta(days=2)
+    n = 0
+    for key in ("emergency", "police", "fire"):
+        for e in (env["data"] or {}).get(key) or []:
+            try:
+                if datetime.fromisoformat(e.get("published") or "") >= cutoff:
+                    n += 1
+            except TypeError, ValueError:
+                continue
+    if not n:
+        return ""
+    posts = "post" if n == 1 else "posts"
+    return f"\ncity news: {n} {posts} in 2 days {CITY_NEWS_URL}"
+
+
+_SOURCE_NAMES = {
+    "nws_alerts": "nws alerts",
+    "nws_forecast": "nws forecast",
+    "ercot": "ercot",
+    "ghostmaps": "ghostmaps",
+    "hf_bands": "hf bands",
+    "spc": "spc outlook",
+    "fema_decl": "fema declarations",
+    "fema_drc": "fema recovery centers",
+}
+
+
+def short_reason(error: str | None) -> str:
+    """'http 500', 'timeout', 'dns' ... never the upstream's own text, which
+    has been a whole html error page."""
+    e = (error or "").lower()
+    if "nas relay" in e:
+        return "nas relay stale" if "stale" in e else "nas relay not running" if "nothing" in e else "nas relay"
+    m = __import__("re").search(r"http (\d{3})", e)
+    if m:
+        return f"http {m.group(1)}"
+    if "timed out" in e or "timeout" in e or "deadline" in e:
+        return "timeout"
+    if "nodename" in e or "name or service" in e or "getaddrinfo" in e or "gaierror" in e or "name resolution" in e:
+        return "dns"
+    if "network error" in e or "connection" in e:
+        return "network"
+    if "not set" in e:
+        return "not configured"
+    return "bad data"
+
+
+def _render_failed(sections: dict, summary: dict | None = None) -> str:
+    """one line under the timestamp naming what failed this run, with a
+    short reason. absent when everything worked."""
+    bad = []
+    if summary is not None and summary.get("status") != "ok":
+        bad.append(f"summary ({short_reason(summary.get('error'))})")
+    for key, name in _SOURCE_NAMES.items():
+        env = sections.get(key)
+        if env is None:
+            continue
+        if env.get("stale_from"):
+            bad.append(f"{name} ({short_reason(env.get('today_error'))}, older copy shown)")
+        elif env.get("status") != "ok":
+            bad.append(f"{name} ({short_reason(env.get('error'))})")
+    rss = sections.get("hv_rss") or {}
+    feeds = ("emergency", "police", "fire")
+    if rss.get("status") != "ok":
+        bad += [f"city {f} feed ({short_reason(rss.get('error'))})" for f in feeds]
+    else:
+        data = rss.get("data") or {}
+        for f in feeds:
+            if f in (data.get("stale") or {}):
+                why = short_reason((rss.get("today_errors") or {}).get(f) or rss.get("today_error"))
+                bad.append(f"city {f} feed ({why}, older copy used)")
+            elif f in (data.get("errors") or {}):
+                bad.append(f"city {f} feed ({short_reason(data['errors'][f])})")
+    bad += [f"{t} (display error)" for t in _RENDER_FAILED]
+    if not bad:
+        return ""
+    return "failed: " + ", ".join(bad)
 
 
 # -- linkification ----------------------------------------------------------
@@ -296,7 +428,8 @@ def _linkify(text: str) -> str:
         url = m.group(1)
         trailing = ""
         # peel back trailing punctuation that's usually sentence punctuation
-        while url and url[-1] in ".,);]":
+        # (':' too: error notices read "fetching <url>: <reason>")
+        while url and url[-1] in ".,);]:":
             trailing = url[-1] + trailing
             url = url[:-1]
         # derive a short display label from the hostname. fall back to the
@@ -319,7 +452,45 @@ def _linkify(text: str) -> str:
     return linked.replace(_B_OPEN, "<b>").replace(_B_CLOSE, "</b>")
 
 
+# -- last good copies -------------------------------------------------------
+
+
+def _mark_stale(title: str, text: str, stale_from: str) -> str:
+    """label a section rendered from the previous build's copy. a copy is
+    never hidden as a quiet day: the reader needs to see that today's fetch
+    failed even when the copy had nothing to show.
+    """
+    try:
+        when = datetime.fromisoformat(stale_from).strftime("%a %H:%M")
+    except TypeError, ValueError:
+        when = "an earlier build"
+    label = f"[fetch failed; showing copy from {when}]"
+    header = _rule(title)
+    if not text:
+        return f"{header}\n{label}\n  nothing to report in that copy"
+    return f"{header}\n{label}{text[len(header):]}"
+
+
+def _failed_today(env: dict) -> bool:
+    return env.get("status") != "ok" or bool(env.get("today_error"))
+
+
 # -- top-level --------------------------------------------------------------
+
+
+_RENDER_FAILED: list[str] = []
+
+
+def _guard(title: str, fn, *args) -> str:
+    """render one section; if a bad value got past its fetcher and the
+    renderer chokes on it, that section says so and the page still builds.
+    """
+    try:
+        return fn(*args)
+    except Exception as e:
+        print(f"[render] {title} failed: {type(e).__name__}: {e}", flush=True)
+        _RENDER_FAILED.append(title.lower())
+        return ""
 
 
 def _header_block(now: datetime) -> str:
@@ -331,12 +502,14 @@ def _header_block(now: datetime) -> str:
     return now.strftime("%Y-%m-%d %H:%M %Z")
 
 
-def render_page(
+def render_text(
     sections: dict[str, Any],
     summary: dict,
     now: datetime,
-    commit_sha: str | None = None,  # kept for build.py compatibility; unused
+    changes: dict | None = None,
 ) -> str:
+    """the page as plain text, before html escaping and links. also served
+    as /today.txt."""
     # assemble all sections as plaintext, then linkify -- turn any bare
     # http(s) urls into <a href> anchors. the entire body sits inside one
     # <pre> so the browser uses its default monospace font and the user
@@ -346,20 +519,64 @@ def render_page(
     # ok-and-empty and the policy is to hide it. errors always produce a
     # rendered section so silent failures are not possible. filter empties
     # before joining so we don't end up with double blank lines.
+    # the city feeds are not listed any more (the summary reads them and
+    # reports what matters); a single link appears when they have news.
+    # (title, renderer, envelope)
+    parts = [
+        ("NWS ALERTS", _render_nws_alerts, sections["nws_alerts"]),
+        ("NWS FORECAST", _render_nws_forecast, sections["nws_forecast"]),
+        ("ERCOT", _render_ercot, sections["ercot"]),
+        ("GHOSTMAPS", _render_ghostmaps, sections["ghostmaps"]),
+        ("HF BANDS", _render_hf_bands, sections["hf_bands"]),
+    ]
+    _RENDER_FAILED.clear()
     rendered = [
         _header_block(now),
-        _render_summary(summary),
-        _render_nws_alerts(sections["nws_alerts"]),
-        _render_nws_forecast(sections["nws_forecast"]),
-        _render_ercot(sections["ercot"]),
-        _render_ghostmaps(sections["ghostmaps"]),
-        _render_rss_section("HV EMERGENCY ALERTS", sections["hv_rss"], "emergency"),
-        _render_rss_section("HV POLICE", sections["hv_rss"], "police"),
-        _render_rss_section("HV FIRE DEPT", sections["hv_rss"], "fire"),
+        _guard("BLUF", _render_summary, summary),
+        _guard("CHANGES", _render_changes, changes),
     ]
-    text = "\n".join(s for s in rendered if s)
+    for title, fn, env in parts:
+        text = _guard(title, fn, env)
+        if env.get("stale_from"):
+            text = _mark_stale(title, text, env["stale_from"])
+        rendered.append(text)
+        if title == "NWS ALERTS" and "spc" in sections:
+            rendered.append(_guard("SPC", _render_spc, sections["spc"]))
+        if title == "NWS ALERTS" and "fema_decl" in sections:
+            rendered.append(_guard("FEMA", _render_fema, sections["fema_decl"], sections.get("fema_drc") or {}))
+    rendered.append(_guard("CITY NEWS", _render_city_news, sections["hv_rss"], now))
+    failed = _render_failed(sections, summary)
+    if failed:
+        # right under the timestamp: a reader has to know the alerts fetch
+        # failed before reading a quiet page as a quiet day
+        rendered[0] += "\n" + failed
+    if all(_failed_today(env) for env in sections.values()):
+        # every section below is unavailable or an older copy; say it once up
+        # top too, so a reader on a bad link doesn't take any of it as current.
+        rendered.insert(
+            1,
+            "\nevery source failed this run. anything below is an"
+            "\nolder copy.",
+        )
+    return "\n".join(s for s in rendered if s) + "\n"
 
-    body = _linkify(text)
+
+def plain(text: str) -> str:
+    """render_text() output with the bold markers removed, for today.txt."""
+    return text.replace(_B_OPEN, "").replace(_B_CLOSE, "")
+
+
+def render_page(
+    sections: dict[str, Any],
+    summary: dict,
+    now: datetime,
+    commit_sha: str | None = None,  # kept for build.py compatibility; unused
+    changes: dict | None = None,
+    text: str | None = None,
+) -> str:
+    if text is None:
+        text = render_text(sections, summary, now, changes)
+    body = _linkify(text.rstrip("\n"))
 
     # the only css on the page: make the <pre> wrap on narrow viewports so
     # mobile users don't have to scroll horizontally. pre-wrap preserves

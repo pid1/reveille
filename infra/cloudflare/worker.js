@@ -63,7 +63,7 @@ async function alert(env, reason) {
   }
 }
 
-async function run(env) {
+async function run(env, { checkHour = true } = {}) {
   if (!env.DEPLOY_HOOK_URL) {
     console.error("DEPLOY_HOOK_URL is not set");
     await alert(env, "DEPLOY_HOOK_URL is not set");
@@ -77,7 +77,7 @@ async function run(env) {
   // candidate times are scheduled and this check picks the right one. In CDT
   // the 09:17 UTC firing is 04:17 local and proceeds; in CST it is 03:17 and
   // defers to the 10:17 UTC firing. Nothing to change twice a year.
-  if (hour !== target) {
+  if (checkHour && hour !== target) {
     console.log(`skip: ${hour}:xx in ${env.TARGET_TZ}, waiting for ${target}:xx`);
     return;
   }
@@ -110,7 +110,21 @@ async function run(env) {
 }
 
 export default {
+  // no crons any more (see wrangler.toml): the account's free plan allows
+  // five, and reveille-full's 10-minute cron needed one. reveille-full calls
+  // fetch() below over a service binding on its 04:20 run instead. kept for
+  // a manual `wrangler triggers` re-enable.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(run(env));
+  },
+
+  // reachable only through reveille-full's service binding: workers_dev is
+  // off and the worker has no route, so there is no public url to call.
+  async fetch(req, env) {
+    if (req.method !== "POST" || new URL(req.url).pathname !== "/dispatch") {
+      return new Response("not found\n", { status: 404 });
+    }
+    await run(env, { checkHour: false });
+    return new Response("dispatched\n");
   },
 };
