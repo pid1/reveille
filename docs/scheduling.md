@@ -78,6 +78,16 @@ it is the platform. github documents `schedule` as best-effort and does not
 guarantee that it fires on time, or at all. for a daily briefing with a
 name like reveille, that is a requirements mismatch, not a bug to file.
 
+## update, 2026-11-15: the trigger rides reveille-full's cron
+
+the free plan allows five cron triggers per account, and the 10-minute
+full page needed one. `reveille-trigger` gave up its two crons and gained a
+`POST /dispatch` handler with no public url (`workers_dev = false`, no
+route). `reveille-full` reaches it over a service binding on its run between
+04:20 and 04:29 central, which also makes the dst logic below unnecessary:
+the full worker checks local time. the github fallback is unchanged. if the
+full worker is broken, the fallback still produces a mid-morning briefing.
+
 ## the fix
 
 two paths, because the reliable one lives outside github.

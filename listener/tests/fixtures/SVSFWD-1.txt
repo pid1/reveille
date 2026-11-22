@@ -1,0 +1,73 @@
+WWUS54 KFWD 030427
+SVSFWD
+
+Severe Weather Statement
+National Weather Service Fort Worth TX
+1027 PM CST Mon Nov 2 2026
+
+TXC133-030436-
+/O.CAN.KFWD.SV.W.0272.000000T0000Z-261103T0445Z/
+Eastland TX-
+1027 PM CST Mon Nov 2 2026
+
+...THE SEVERE THUNDERSTORM WARNING FOR SOUTHEASTERN EASTLAND COUNTY
+IS CANCELLED...
+
+The storms which prompted the warning have moved out of the warned 
+area. Therefore, the warning has been cancelled.
+
+A Tornado Watch remains in effect until 1100 PM CST for central and
+north central Texas.
+
+&&
+
+LAT...LON 3221 9847 3235 9847 3241 9836 3212 9822
+      3205 9857
+TIME...MOT...LOC 0426Z 243DEG 35KT 3233 9841 3218 9835 
+
+$$
+
+TXC093-143-030445-
+/O.CON.KFWD.SV.W.0272.000000T0000Z-261103T0445Z/
+Erath TX-Comanche TX-
+1027 PM CST Mon Nov 2 2026
+
+...A SEVERE THUNDERSTORM WARNING REMAINS IN EFFECT UNTIL 1045 PM CST
+FOR NORTHWESTERN ERATH AND NORTH CENTRAL COMANCHE COUNTIES...
+
+At 1026 PM CST, severe thunderstorms were located along a line
+extending from near Huckabay to 6 miles north of Dublin, moving
+northeast at 40 mph.
+
+HAZARD...60 mph wind gusts.
+
+SOURCE...Radar indicated.
+
+IMPACT...Expect damage to roofs, siding, and trees.
+
+Locations impacted include...
+Stephenville, Dublin, De Leon, Comyn, Harbin, Lingleville, Bunyan,
+and Highland.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+A Tornado Watch remains in effect until 1100 PM CST for central and
+north central Texas.
+
+For your protection stay inside a sturdy structure and keep away from
+windows.
+
+&&
+
+LAT...LON 3221 9847 3235 9847 3241 9836 3212 9822
+      3205 9857
+TIME...MOT...LOC 0426Z 243DEG 35KT 3233 9841 3218 9835 
+
+HAIL THREAT...RADAR INDICATED
+MAX HAIL SIZE...<.75 IN
+WIND THREAT...RADAR INDICATED
+MAX WIND GUST...60 MPH
+
+$$
+
+Darrah

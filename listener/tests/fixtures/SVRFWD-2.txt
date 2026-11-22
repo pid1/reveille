@@ -1,0 +1,59 @@
+WUUS54 KFWD 152326
+SVRFWD
+TXC221-251-367-439-160030-
+/O.NEW.KFWD.SV.W.0270.261015T2326Z-261016T0030Z/
+
+BULLETIN - IMMEDIATE BROADCAST REQUESTED
+Severe Thunderstorm Warning
+National Weather Service Fort Worth TX
+626 PM CDT Thu Oct 15 2026
+
+The National Weather Service in Fort Worth has issued a
+
+* Severe Thunderstorm Warning for...
+  Northwestern Johnson County in north central Texas...
+  Eastern Parker County in north central Texas...
+  Southwestern Tarrant County in north central Texas...
+  Northeastern Hood County in north central Texas...
+
+* Until 730 PM CDT.
+
+* At 625 PM CDT, severe thunderstorms were located along a line
+  extending from 6 miles north of Weatherford to near Western Lake,
+  moving east at 25 mph.
+
+  HAZARD...60 mph wind gusts.
+
+  SOURCE...Radar indicated.
+
+  IMPACT...Expect damage to roofs, siding, and trees.
+
+* Locations impacted include...
+  Fort Worth, Burleson, Cleburne, Weatherford, Benbrook, Saginaw,
+  White Settlement, Crowley, Azle, Granbury, River Oaks, Everman,
+  Keene, Joshua, Sansom Park, Lake Worth, Eagle Mountain, Willow
+  Park, Edgecliff Village, and Aledo.
+
+This includes the following highways...
+ Interstate 35W between mile markers 35 and 58.
+ Interstate 20 between mile markers 402 and 437.
+ Interstate 30 between mile markers 1 and 16.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+For your protection get inside a sturdy structure and stay away from
+windows.
+
+&&
+
+LAT...LON 3286 9730 3236 9730 3247 9790 3293 9789
+TIME...MOT...LOC 2325Z 285DEG 22KT 3285 9777 3257 9775 
+
+HAIL THREAT...RADAR INDICATED
+MAX HAIL SIZE...<.75 IN
+WIND THREAT...RADAR INDICATED
+MAX WIND GUST...60 MPH
+
+$$
+
+Shamburger

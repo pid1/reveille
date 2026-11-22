@@ -6,9 +6,28 @@ a plaintext daily morning briefing for highland village, tx. one static html pag
 
 - nws active alerts (ozone action days filtered out) and 3-day forecast for highland village
 - ercot grid status
-- highland village emergency, police, and fire rss feeds (most recent 14 days)
+- highland village emergency, police, and fire rss feeds, read by the summary and linked when
+  something was posted in the last two days (no longer listed on the page)
+- spc convective outlook days 1-3, one line, only when there is a risk
+- what started and ended since yesterday's alerts
+- fema: a disaster declaration for denton county in the last 60 days, and open
+  disaster recovery centers in denton and the neighbouring counties (only when
+  there is one)
 - geolocated incidents from s2 underground's ghostmaps common intelligence picture, filtered to within 25 miles and the last 24 hours
+- hf band conditions: solar flux, sunspots, a/k index, x-ray and n0nbh's calculated day/night conditions per band group, from [hamqsl.com](https://www.hamqsl.com/solar.html) (credited and linked on the page, as n0nbh asks; fetched once per build, well inside the hourly limit)
 - short ai-generated summary at the top (claude sonnet 5.5), with graceful fallback to raw data if the summary call fails
+
+## the other two pieces
+
+- **[full.reveille.pid1.space](https://full.reveille.pid1.space/)**, the full page: current
+  conditions, an hourly table, 7 days, spc and wpc risk and the forecast discussion's key
+  messages, rebuilt every 10 minutes by its own worker with no llm. see
+  [infra/full/README.md](infra/full/README.md). the daily page links it on its second line.
+- **the nas listener**, an nwws-oi client on the unraid nas that pushes warnings for the house
+  within seconds. the full page's worker is its backup. see [listener/README.md](listener/README.md).
+
+a source that fails is named once, with a short reason, in a `failed:` line under the timestamp
+on either page. its section is left out, or replaced by its labelled last good copy.
 
 ## why minimal data transfer matters
 
@@ -59,9 +78,10 @@ REVEILLE_PAGE_URL=...      # optional, overrides the published page url
 ```
 
 if both pushover values are set, the build sends a push notification with
-the BLUF text to your devices after writing the page. the push is skipped
-on quiet days (when the BLUF is `NSTR.`) and any pushover failure is logged
-but does not affect the page build.
+the BLUF text to your devices after writing the page. if the ai summary
+failed, it sends `briefing up, summary unavailable.` instead. the push is
+skipped on quiet days (when the BLUF is `NSTR.`) and any pushover failure
+is logged but does not affect the page build.
 
 ask the maintainer for the location values if you're working on a fork.
 
@@ -120,7 +140,10 @@ briefing into a mid-morning one. so the crons in `build.yml` are a backstop,
 not the primary trigger.
 
 the primary trigger is a cloudflare worker in `infra/cloudflare/` that posts
-a workers builds deploy hook at 04:17 central. that starts a cloudflare build
+a workers builds deploy hook at 04:20 central. since 2026-11-15 it has no
+cron of its own: the account's free plan allows five cron triggers, so
+reveille-full's 10-minute cron calls it over a service binding on the run
+between 04:20 and 04:29 (win's call, instead of paying for workers paid). that starts a cloudflare build
 which renders the page and deploys it, so the whole primary path stays off
 github. the worker lives on cloudflare's edge rather than on a box at the
 house on purpose -- a local trigger would just trade github's unreliable
@@ -154,6 +177,7 @@ scoping, and what to check if it starts happening again are in
 - **this is not a replacement for hyper-reach.** the city of highland village's real-time alerting system runs over phone/sms/alexa and is faster than rss for genuine emergencies. sign up at highlandvillage.org/notifyme. reveille is for morning situational awareness, not emergency notification.
 - **ghostmaps is community-maintained data.** s2 underground aggregates open-source intelligence; coverage and freshness vary. empty result lists are normal.
 - **ercot data depends on a third-party api.** if gridstatus.io is unreachable or its api shape changes, that section will be unavailable.
+- **a failed source shows its last good copy, labelled.** each build writes the data it got to `last-good.json` next to the page, deployed with it, and the next build reads it back from the live site. the forecast (past periods dropped), band conditions and city feeds carry over from yesterday; alerts, ghostmaps and ercot go stale too fast and only carry over within the same day. cutoffs and reasons are in `lastgood.py`. the page itself does not grow; readers never fetch that file.
 - **the ai summary is best-effort.** if anthropic's api is down or rate-limited, the page renders without it. the raw data is always present.
 
 ## license

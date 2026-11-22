@@ -1,0 +1,48 @@
+# reveille-full -- full.reveille.pid1.space
+#
+# the 10-minute text forecast page. a separate worker on purpose: it never
+# deploys the reveille worker, so the github fallback gate (which reads that
+# worker's deployment record) still only sees the morning briefing, and a
+# problem here cannot touch the daily page. see infra/full/README.md.
+
+name = "reveille-full"
+main = "src/index.js"
+compatibility_date = "2026-09-11"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+[[kv_namespaces]]
+binding = "STORE"
+id = "b2424ee7509a4eccaef19ba71fd5e359"
+
+# the morning briefing's trigger. on the run between 04:20 and 04:29 local,
+# this worker asks reveille-trigger to post the workers builds deploy hook.
+[[services]]
+binding = "TRIGGER"
+service = "reveille-trigger"
+
+[[routes]]
+pattern = "full.reveille.pid1.space"
+custom_domain = true
+
+[vars]
+TZ = "America/Chicago"
+DAILY_URL = "https://reveille.pid1.space/"
+PUSH_MIN_PRIORITY = "0"
+# fema ipaws: same codes whose local-authority alerts show and push.
+# 048121 is denton county.
+SAME_CODES = "048121"
+# cities whose open fema/red cross shelters show on the page
+SHELTER_CITIES = "Highland Village,Lewisville,Flower Mound,Lake Dallas,Corinth,Hickory Creek,Shady Shores,Copper Canyon,Double Oak,Bartonville,Argyle,Denton,The Colony,Carrollton,Coppell,Little Elm,Frisco"
+MORNING_HOUR = "4"
+MORNING_MINUTE = "20"
+
+[observability]
+enabled = true
+
+# secrets, set with `wrangler secret put NAME`:
+#   HOME_LAT, HOME_LON      the house. private; never commit them.
+#   PUSHOVER_API_KEY, PUSHOVER_USER_KEY
+#   SEEN_TOKEN              shared with the nas listener (REVEILLE_SEEN_TOKEN)
+#   HEALTHCHECK_URL         optional dead-man's switch ping

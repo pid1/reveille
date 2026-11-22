@@ -1,0 +1,56 @@
+WGUS74 KFWD 032106
+FFSFWD
+
+Flash Flood Statement
+National Weather Service Fort Worth TX
+406 PM CDT Sat Oct 3 2026
+
+TXC027-099-309-032115-
+/O.CON.KFWD.FF.W.0093.000000T0000Z-261003T2115Z/
+/00000.0.ER.000000T0000Z.000000T0000Z.000000T0000Z.OO/
+Bell TX-Coryell TX-McLennan TX-
+406 PM CDT Sat Oct 3 2026
+
+...FLASH FLOOD WARNING REMAINS IN EFFECT UNTIL 415 PM CDT THIS
+AFTERNOON FOR NORTH CENTRAL BELL, SOUTHEASTERN CORYELL AND
+SOUTHWESTERN MCLENNAN COUNTIES...
+
+At 406 PM CDT, Doppler radar indicated thunderstorms producing heavy
+rain in Highway 107 between Moody and Whitson. Between 3 and 4 inches
+of rain have fallen. Flash flooding is already occurring.
+
+HAZARD...Flash flooding caused by thunderstorms.
+
+SOURCE...Radar indicated.
+
+IMPACT...Flash flooding of small creeks and streams, urban areas,
+         highways, streets and underpasses as well as other poor
+         drainage and low-lying areas.
+
+Some locations that will experience flash flooding include...
+  Temple, Harker Heights, Belton, McGregor, Nolanville, Morgan's
+  Point Resort, Moody, Mother Neff State Park, Belton Lake, Oglesby,
+  Whitson, White Hall, Owl Creek, Meadow Grove, The Grove, Moffat,
+  Woodland, Leon Junction and Flat.
+
+PRECAUTIONARY/PREPAREDNESS ACTIONS...
+
+Turn around, don't drown when encountering flooded roads. Most flood
+deaths occur in vehicles.
+
+Be aware of your surroundings and do not drive on flooded roads.
+
+In hilly terrain there are hundreds of low water crossings which are
+potentially dangerous in heavy rain. Do not attempt to cross flooded
+roads. Find an alternate route.
+
+&&
+
+LAT...LON 3119 9768 3125 9768 3142 9751 3146 9742
+      3146 9732 3143 9725 3106 9745 3104 9767
+
+FLASH FLOOD...RADAR INDICATED
+
+$$
+
+Darrah
