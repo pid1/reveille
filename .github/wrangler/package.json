@@ -2,6 +2,6 @@
   "private": true,
   "description": "The wrangler that the fallback deploy workflows run, locked so its dependencies are pinned too.",
   "devDependencies": {
-    "wrangler": "4.158.0"
+    "wrangler": "4.162.0"
   }
 }

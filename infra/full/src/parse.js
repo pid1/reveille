@@ -94,15 +94,17 @@ export function dailyRows(periods) {
 }
 
 // afd: the key messages and the spotter statement, verbatim
+const AFD_KEY_MESSAGES = /\n\.KEY MESSAGES\.\.\.\s*\n([\s\S]*?)(?:\n&&|\n\.[A-Z][A-Z /]+\.\.\.)/;
+const AFD_SPOTTER = /\n\.SPOTTER INFORMATION STATEMENT\.\.\.\s*\n([\s\S]*?)(?:\n&&|\n\.[A-Z][A-Z /]+\.\.\.)/;
 export function afdParts(text) {
-  const section = (name) => {
-    const m = new RegExp(`\\n\\.${name}\\.\\.\\.\\s*\\n([\\s\\S]*?)(?:\\n&&|\\n\\.[A-Z][A-Z /]+\\.\\.\\.)`).exec(text || "");
+  const section = (re) => {
+    const m = re.exec(text || "");
     return m ? m[1].replace(/[ \t]+\n/g, "\n").trim() : "";
   };
   const issued = /^(\d{3,4} [AP]M [A-Z]{3} .*\d{4})$/m.exec(text || "");
-  const spotterRaw = section("SPOTTER INFORMATION STATEMENT");
+  const spotterRaw = section(AFD_SPOTTER);
   return {
-    keyMessages: section("KEY MESSAGES"),
+    keyMessages: section(AFD_KEY_MESSAGES),
     spotter: spotterRaw.replace(/\s+/g, " "),
     issued: issued ? issued[1] : "",
   };
@@ -173,9 +175,15 @@ export function parseHamqsl(xml) {
   return { conditions: cond, vhf };
 }
 
+// the text of the first <name>...</name> element. a string search, so no
+// regex is built from the name.
 const tag = (xml, name) => {
-  const m = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(xml);
-  return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : "";
+  const open = `<${name}>`;
+  const start = xml.indexOf(open);
+  if (start < 0) return "";
+  const end = xml.indexOf(`</${name}>`, start + open.length);
+  if (end < 0) return "";
+  return xml.slice(start + open.length, end).replace(/<!\[CDATA\[|\]\]>/g, "").trim();
 };
 const unescapeXml = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&");
 
