@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { afdParts, dailyRows, parseHamqsl, parseIpaws, parseRss, durationHours, fieldAt, hourlyRows, priorityFor, shortReason, sunTimes, vtecKey } from "../src/parse.js";
-import worker, { alertPushes, cityFromRelay, ipawsPushes, morningRun, run } from "../src/index.js";
+import worker, { alertPushes, cityFromRelay, ipawsPushes, morningRun, run, shouldSaveState, STATE_SAVE_MS } from "../src/index.js";
 import { renderText, spotterMatters, weatherWords } from "../src/render.js";
 
 test("vtec keys match the nas listener's format", () => {
@@ -114,6 +114,46 @@ test("run() survives every source failing", async () => {
     const page = JSON.parse(kv.get("page"));
     assert.match(page.txt, /^failed: nws alerts \(network\)/m);
     assert.ok(page.html.length < 1500);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test("state saves when push bookkeeping or the hf fetch changes, else every 30 minutes", () => {
+  const t = Date.parse("2026-11-24T20:00:00Z");
+  const base = () => ({ savedAt: t, alertsInit: true, alerts: {}, ipawsInit: true, ipaws: {}, health: { fails: 0, notified: false }, points: { at: t }, copies: { hf: { at: t }, grid: { at: t } } });
+  const key = (st) => JSON.stringify([st.alerts, st.alertsInit, st.ipaws, st.ipawsInit, st.health, st.points, st.copies.hf.at]);
+  const quiet = base();
+  quiet.copies.grid = { at: t + 10 * 60e3 }; // a fresh copy alone waits
+  assert.equal(shouldSaveState(key(base()), quiet, t + 10 * 60e3), false);
+  assert.equal(shouldSaveState(key(base()), quiet, t + STATE_SAVE_MS), true);
+  for (const change of [(s) => (s.alerts["2026.KFWD.TO.W.0028"] = { by: "poll" }), (s) => (s.ipaws.x = t), (s) => (s.health = { fails: 1, notified: false, since: t }), (s) => (s.copies.hf = { at: t + 60 * 60e3 }), (s) => (s.points = { at: t + 1 })]) {
+    const s = base();
+    change(s);
+    assert.equal(shouldSaveState(key(base()), s, t + 10 * 60e3), true);
+  }
+  const fresh = {}; // first run, or an empty store
+  assert.equal(shouldSaveState(JSON.stringify([]), fresh, t), true);
+});
+
+test("run() skips the state write on a quiet run and saves it 30 minutes on", async () => {
+  const kv = new Map();
+  const puts = [];
+  const env = { HOME_LAT: "33.09", HOME_LON: "-97.05", STORE: { get: async (k, t) => (kv.has(k) ? (t === "json" ? JSON.parse(kv.get(k)) : kv.get(k)) : null), put: async (k, v) => { puts.push(k); kv.set(k, v); } } };
+  const t = Date.parse("2026-11-24T20:00:00Z");
+  const real = globalThis.fetch;
+  // nws alerts answer with nothing in effect; every other source fails
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/alerts/active")) return new Response(JSON.stringify({ features: [] }), { status: 200 });
+    throw new Error("fetch failed");
+  };
+  try {
+    kv.set("state", JSON.stringify({ points: { at: t, office: "FWD", grid: "https://api.weather.gov/gridpoints/FWD/1,1", forecast: "https://api.weather.gov/gridpoints/FWD/1,1/forecast", stations: ["KDFW"] } }));
+    await run(env, t); // first run records alertsInit and health: saves
+    await run(env, t + 10 * 60e3); // nothing changed: page only
+    await run(env, t + 20 * 60e3);
+    await run(env, t + 30 * 60e3); // 30 minutes since the save
+    assert.deepEqual(puts, ["page", "state", "page", "page", "page", "state"]);
   } finally {
     globalThis.fetch = real;
   }

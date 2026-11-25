@@ -66,5 +66,7 @@ node --test infra/full/test/*.test.js
 npx wrangler tail reveille-full
 ```
 
-free plan budget: 144 cron runs a day, two kv writes each (288 of the 1,000 allowed), about a dozen
+free plan budget: 144 cron runs a day. each writes the page; state is written only when push
+bookkeeping or the hf fetch changes, or every 30 minutes otherwise (about 50 a day). the nas's city
+relay adds one write per post (144 a day). about 340 of the 1,000 kv writes allowed, and about a dozen
 subrequests per run.

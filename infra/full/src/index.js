@@ -263,8 +263,20 @@ async function health(env, state, alertsOk, now) {
 
 // -- handlers ---------------------------------------------------------------
 
+// kv allows 1,000 writes a day across the account, so state is written only
+// when it has to be. the parts that stop a push going out twice (alerts,
+// ipaws, health), the station lookup and the hf fetch time (n0nbh's hourly
+// ask) save on the run they change. the other fallback copies save at most
+// every 30 minutes: their shortest cutoff is 2 hours.
+export const STATE_SAVE_MS = 30 * 60e3;
+const mustSave = (st) => JSON.stringify([st.alerts, st.alertsInit, st.ipaws, st.ipawsInit, st.health, st.points, st.copies && st.copies.hf && st.copies.hf.at]);
+export function shouldSaveState(before, state, now) {
+  return mustSave(state) !== before || !(now - (state.savedAt || 0) < STATE_SAVE_MS);
+}
+
 export async function run(env, now = Date.now()) {
   const state = (await env.STORE.get("state", "json")) || {};
+  const before = mustSave(state);
   const s = await gather(env, state, now);
   const text = renderText(s, env, now);
   const html = toHtml(text, `reveille full -- ${new Date(now).toISOString().slice(0, 10)}`);
@@ -278,7 +290,10 @@ export async function run(env, now = Date.now()) {
     for (const p of ipawsPushes(state, s.ipaws.data, now)) await push(env, p);
   }
   await health(env, state, alertsOk, now);
-  await env.STORE.put("state", JSON.stringify(state));
+  if (shouldSaveState(before, state, now)) {
+    state.savedAt = now;
+    await env.STORE.put("state", JSON.stringify(state));
+  }
   if (env.HEALTHCHECK_URL) {
     try {
       await fetch(env.HEALTHCHECK_URL, { signal: AbortSignal.timeout(5000) });
